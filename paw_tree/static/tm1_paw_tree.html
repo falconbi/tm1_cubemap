@@ -158,6 +158,17 @@ body { display: flex; flex-direction: column; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--faint); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--border); }
+
+/* CUBE / VIEW FILTER */
+.cube-view-wrap { display: flex; align-items: center; gap: 5px; padding: 5px 10px; background: var(--card); border: 1px solid var(--border); border-radius: 6px; }
+.cube-view-wrap.active { border-color: var(--blue); }
+#cube-select, #view-select { background: none; border: none; color: var(--text); font-size: 12px; font-family: var(--font-ui); outline: none; cursor: pointer; max-width: 160px; }
+#cube-select option, #view-select option { background: var(--surface); color: var(--text); }
+#view-select:disabled { opacity: 0.4; cursor: default; }
+
+
+/* MDX inline in drawer tab expand */
+.mdx-pre-inline { font-family: 'Courier New', monospace; font-size: 10px; color: var(--blue); background: var(--bg); padding: 8px 10px; border-radius: 4px; overflow-x: auto; white-space: pre; margin-top: 4px; border: 1px solid var(--border); display: block; line-height: 1.5; max-height: 140px; }
 </style>
 </head>
 <body>
@@ -192,9 +203,22 @@ body { display: flex; flex-direction: column; }
       <option value="">All groups</option>
     </select>
   </div>
+  <div id="cube-filter-wrap" class="cube-view-wrap">
+    <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><rect x="1" y="4" width="9" height="6" rx="1" stroke="var(--muted)" stroke-width="1.1"/><path d="M3 4V3a2 2 0 0 1 5 0v1" stroke="var(--muted)" stroke-width="1.1" fill="none"/></svg>
+    <select id="cube-select" onchange="onCubeFilter(this.value)">
+      <option value="">All cubes</option>
+    </select>
+  </div>
+  <div id="view-filter-wrap" class="cube-view-wrap">
+    <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><rect x="1" y="1" width="9" height="9" rx="1.5" stroke="var(--muted)" stroke-width="1.1"/><line x1="1" y1="4" x2="10" y2="4" stroke="var(--muted)" stroke-width=".8"/></svg>
+    <select id="view-select" onchange="onViewFilter(this.value)" disabled>
+      <option value="">All views</option>
+    </select>
+  </div>
   <div id="toolbar-spacer"></div>
   <div id="tree-count"></div>
 </div>
+
 
 <div id="tree-wrap"><div id="tree"></div></div>
 
@@ -227,13 +251,17 @@ try { isDark = localStorage.getItem('tm1-workbook-theme') !== 'light'; } catch(e
 applyTheme();
 
 // STATE
-let TREE        = [];
-let GROUPS      = [];
-let activeGroup = '';
-let selectedId  = null;
-let openTabId   = null;
+let TREE         = [];
+let GROUPS       = [];
+let activeGroup  = '';
+let activeCube   = '';
+let activeView   = '';
+let selectedId   = null;
+let selectedNode = null;
+let openTabId    = null;
 const openIds   = new Set(['f-shared']);
 const NOW       = new Date();
+const tabMap    = {};
 
 // HELPERS
 function relTime(iso) {
@@ -307,6 +335,12 @@ function updateStats() {
 
 // TREE RENDER
 function renderTree(nodes) {
+  const hasBooks = flattenAll(nodes).some(function(n) { return n.type === 'book'; });
+  if (!hasBooks && (activeCube || activeView || activeGroup)) {
+    document.getElementById('tree').innerHTML =
+      '<div style="padding:18px 14px;font-size:11px;color:var(--muted)">No books match the current filters.</div>';
+    return;
+  }
   document.getElementById('tree').innerHTML = buildTreeHTML(nodes, 0);
   attachHandlers();
 }
@@ -380,7 +414,7 @@ function attachHandlers() {
 // SEARCH
 function onSearch(q) {
   document.getElementById('clear-btn').style.display = q ? 'block' : 'none';
-  if (!q.trim()) { renderTree(filterByGroup(TREE, activeGroup)); return; }
+  if (!q.trim()) { renderTree(getFilteredTree()); return; }
   const lq   = q.toLowerCase();
   const hits = flattenAll(TREE).filter(function(n) {
     return n.name.toLowerCase().includes(lq) ||
@@ -407,7 +441,7 @@ function onSearch(q) {
 function clearSearch() {
   document.getElementById('search-input').value = '';
   document.getElementById('clear-btn').style.display = 'none';
-  renderTree(filterByGroup(TREE, activeGroup));
+  renderTree(getFilteredTree());
 }
 
 // DRAWER
@@ -421,9 +455,11 @@ function openDrawer(node) {
 function closeDrawer() {
   document.getElementById('detail-drawer').classList.remove('open');
   document.querySelectorAll('.tree-row.active').forEach(function(r) { r.classList.remove('active'); });
-  selectedId = null;
+  selectedId   = null;
+  selectedNode = null;
 }
 function showDetail(node) {
+  selectedNode = node;
   openDrawer(node);
   if (node.type === 'folder') showFolderDetail(node);
   else showBookDetail(node);
@@ -484,9 +520,11 @@ function showFolderDetail(node) {
 function showBookDetail(node) {
   const el   = document.getElementById('book-detail');
   const tabs = node.tabs||[];
+  tabs.forEach(function(tab) { tabMap[tab.id] = tab; });
   const tc   = node.assetType === 'workbench' ? 'Workbench' : 'Dashboard';
   const tcol = node.assetType === 'workbench' ? 'var(--purple)' : 'var(--blue)';
 
+  // ── Section 1: Book metadata (always shown) ────────────────────────────────
   let html = '<div class="detail-grid">'
     + '<div><div class="detail-label">Type</div><div class="detail-val" style="color:' + tcol + '">' + tc + '</div></div>'
     + '<div><div class="detail-label">Path</div><div class="detail-val mono">' + (node.path||'—') + '</div></div>'
@@ -500,27 +538,81 @@ function showBookDetail(node) {
     + '<div><div class="detail-label">Permissions</div><div class="detail-val" style="color:var(--teal)">' + ((node.permissions||[]).join(', ')||'—') + '</div></div>'
     + '</div>';
 
-  if (tabs.length) {
-    html += '<div class="section-lbl">Pages · ' + tabs.length + '</div>';
-    tabs.forEach(function(tab, i) {
-      html += '<div class="page-card" onclick="toggleTab(\'' + tab.id + '\')">'
-        + '<span class="page-num">' + (i+1) + '</span>'
-        + tabSVG()
-        + '<div style="flex:1"><div class="page-name">' + tab.name + '</div>'
-        + '<div class="page-sub">' + tab.type + (tab.cube ? ' · ' + tab.cube : '') + '</div></div>'
-        + '<span style="color:var(--muted);font-size:14px">›</span></div>'
-        + '<div class="page-expand" id="expand-' + tab.id + '">'
-        + '<div class="pe-grid">'
-        + '<div><div class="detail-label">TM1 Server</div><div class="detail-val mono">' + (tab.server||'—') + '</div></div>'
-        + '<div><div class="detail-label">Cube</div><div class="detail-val mono">' + (tab.cube||'—') + '</div></div>'
-        + '<div><div class="detail-label">View</div><div class="detail-val mono">' + (tab.view||'—') + '</div></div>'
-        + '<div><div class="detail-label">Type</div><div class="detail-val">' + tab.type + '</div></div>'
-        + '</div></div>';
+  if (activeCube && activeView) {
+    // ── Section 2: Tabs using this view ───────────────────────────────────────
+    const matchingTabs = tabs.filter(function(t) {
+      return t.cube === activeCube && t.view === activeView;
     });
+    html += '<div class="section-lbl">TABS USING THIS VIEW · ' + matchingTabs.length + '</div>';
+    if (matchingTabs.length) {
+      matchingTabs.forEach(function(tab) {
+        html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">'
+          + tabSVG()
+          + '<span style="font-size:12px;color:var(--text)">' + tab.name + '</span>'
+          + '</div>';
+      });
+    } else {
+      html += '<div style="font-size:11px;color:var(--muted);padding:4px 0">No tabs use this view.</div>';
+    }
+
+    // ── Section 3: View definition ─────────────────────────────────────────────
+    html += '<div style="display:flex;align-items:center;gap:8px;margin-top:14px;margin-bottom:6px">'
+      + '<span class="section-lbl" style="margin:0">VIEW DEFINITION</span>'
+      + '<span id="drawer-view-type" style="font-size:10px;padding:1px 7px;border-radius:4px;border:1px solid var(--border);color:var(--muted)">—</span>'
+      + '<button onclick="copyDrawerMDX()" style="margin-left:auto;font-size:10px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer" id="drawer-mdx-copy-btn">Copy</button>'
+      + '</div>'
+      + '<pre id="drawer-mdx-pre" style="font-family:\'Courier New\',monospace;font-size:10px;color:var(--blue);background:var(--bg);padding:10px;border-radius:4px;border:1px solid var(--border);overflow-x:auto;white-space:pre;line-height:1.5;margin:0;min-height:40px">Loading…</pre>';
+
   } else {
-    html += '<div style="font-size:11px;color:var(--muted);font-style:italic;padding:8px 0">No pages found.</div>';
+    // ── No filter: show all tabs ───────────────────────────────────────────────
+    if (tabs.length) {
+      html += '<div class="section-lbl">Pages · ' + tabs.length + '</div>';
+      tabs.forEach(function(tab, i) {
+        html += '<div class="page-card" onclick="toggleTab(\'' + tab.id + '\')">'
+          + '<span class="page-num">' + (i+1) + '</span>'
+          + tabSVG()
+          + '<div style="flex:1"><div class="page-name">' + tab.name + '</div>'
+          + '<div class="page-sub">' + tab.type + (tab.cube ? ' · ' + tab.cube : '') + '</div></div>'
+          + '<span style="color:var(--muted);font-size:14px">›</span></div>'
+          + '<div class="page-expand" id="expand-' + tab.id + '">'
+          + '<div class="pe-grid">'
+          + '<div><div class="detail-label">TM1 Server</div><div class="detail-val mono">' + (tab.server||'—') + '</div></div>'
+          + '<div><div class="detail-label">Cube</div><div class="detail-val mono">' + (tab.cube||'—') + '</div></div>'
+          + '<div><div class="detail-label">View</div><div class="detail-val mono">' + (tab.view||'—') + '</div></div>'
+          + '<div><div class="detail-label">Type</div><div class="detail-val">' + tab.type + '</div></div>'
+          + '</div></div>';
+      });
+    } else {
+      html += '<div style="font-size:11px;color:var(--muted);font-style:italic;padding:8px 0">No pages found.</div>';
+    }
   }
+
   el.innerHTML = html;
+
+  // Async: load MDX into section 3 if cube+view are selected
+  if (activeCube && activeView) {
+    fetch('/api/tm1/mdx?cube=' + encodeURIComponent(activeCube) + '&view=' + encodeURIComponent(activeView))
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        var pre  = document.getElementById('drawer-mdx-pre');
+        var type = document.getElementById('drawer-view-type');
+        if (pre)  pre.textContent  = d.mdx || d.message || ('Error: ' + (d.error||'unknown'));
+        if (type) type.textContent = d.type || '—';
+      })
+      .catch(function(e) {
+        var pre = document.getElementById('drawer-mdx-pre');
+        if (pre) pre.textContent = 'Failed: ' + e.message;
+      });
+  }
+}
+
+function copyDrawerMDX() {
+  var text = document.getElementById('drawer-mdx-pre');
+  if (!text) return;
+  navigator.clipboard.writeText(text.textContent).then(function() {
+    var btn = document.getElementById('drawer-mdx-copy-btn');
+    if (btn) { btn.textContent = 'Copied!'; setTimeout(function() { btn.textContent = 'Copy'; }, 1500); }
+  });
 }
 
 function toggleTab(tabId) {
@@ -537,6 +629,18 @@ function toggleTab(tabId) {
   expand.classList.toggle('open', !isOpen);
   row.classList.toggle('active', !isOpen);
   openTabId = !isOpen ? tabId : null;
+  if (!isOpen) {
+    var tab   = tabMap[tabId];
+    var mdxEl = tab && tab.cube && tab.view ? document.getElementById('mdx-inline-' + tabId) : null;
+    if (mdxEl && !mdxEl.dataset.loaded) {
+      mdxEl.dataset.loaded = '1';
+      mdxEl.textContent = 'Loading…';
+      fetch('/api/tm1/mdx?cube=' + encodeURIComponent(tab.cube) + '&view=' + encodeURIComponent(tab.view))
+        .then(function(r) { return r.json(); })
+        .then(function(d) { mdxEl.textContent = d.mdx || d.message || ('Error: ' + (d.error||'unknown')); })
+        .catch(function(e) { mdxEl.textContent = 'Failed: ' + e.message; });
+    }
+  }
 }
 
 // GROUP FILTER
@@ -556,7 +660,7 @@ async function loadGroups() {
 function onGroupFilter(groupId) {
   activeGroup = groupId;
   document.getElementById('group-filter-wrap').classList.toggle('active', !!groupId);
-  renderTree(filterByGroup(TREE, groupId));
+  renderTree(getFilteredTree());
 }
 function filterByGroup(nodes, groupId) {
   if (!groupId) return nodes;
@@ -577,6 +681,73 @@ function filterByGroup(nodes, groupId) {
     });
   }
   return filterNodes(nodes);
+}
+
+// CUBE / VIEW FILTER
+function filterByCubeView(nodes, cube, view) {
+  if (!cube) return nodes;
+  function bookMatches(book) {
+    return (book.tabs||[]).some(function(t) {
+      if (t.cube !== cube) return false;
+      return !view || t.view === view;
+    });
+  }
+  function filterNodes(ns) {
+    return ns.reduce(function(acc, n) {
+      if (n.type === 'book') {
+        if (bookMatches(n)) acc.push(n);
+      } else {
+        var kids = filterNodes(n.children||[]);
+        if (kids.length) acc.push(Object.assign({}, n, {children: kids}));
+      }
+      return acc;
+    }, []);
+  }
+  return filterNodes(nodes);
+}
+function getFilteredTree() {
+  var t = filterByGroup(TREE, activeGroup);
+  return filterByCubeView(t, activeCube, activeView);
+}
+
+async function loadCubes() {
+  try {
+    var res  = await fetch('/api/tm1/cubes');
+    var data = await res.json();
+    if (data.error) return;
+    var sel = document.getElementById('cube-select');
+    (data.cubes||[]).forEach(function(c) {
+      var opt = document.createElement('option');
+      opt.value = c; opt.textContent = c; sel.appendChild(opt);
+    });
+  } catch(e) { console.warn('Cubes load failed:', e); }
+}
+async function onCubeFilter(cube) {
+  activeCube = cube;
+  activeView = '';
+  var viewSel = document.getElementById('view-select');
+  viewSel.innerHTML = '<option value="">All views</option>';
+  viewSel.disabled  = true;
+  document.getElementById('view-filter-wrap').classList.remove('active');
+  document.getElementById('cube-filter-wrap').classList.toggle('active', !!cube);
+  renderTree(getFilteredTree());
+  if (selectedNode && selectedNode.type === 'book') showBookDetail(selectedNode);
+  if (!cube) return;
+  try {
+    var res  = await fetch('/api/tm1/views?cube=' + encodeURIComponent(cube));
+    var data = await res.json();
+    (data.views||[]).forEach(function(v) {
+      var opt = document.createElement('option');
+      opt.value = v; opt.textContent = v; viewSel.appendChild(opt);
+    });
+    viewSel.disabled = false;
+  } catch(e) { console.warn('Views load failed:', e); }
+}
+async function onViewFilter(view) {
+  activeView = view;
+  document.getElementById('view-filter-wrap').classList.toggle('active', !!view);
+  renderTree(getFilteredTree());
+  if (selectedNode && selectedNode.type === 'book') showBookDetail(selectedNode);
 }
 
 // LIVE DATA
@@ -620,6 +791,7 @@ async function loadPAWTree() {
 }
 
 loadGroups();
+loadCubes();
 loadPAWTree();
 </script>
 </body>

@@ -131,6 +131,69 @@ def api_status():
     })
 
 
+@app.route('/api/tm1/cubes')
+def api_tm1_cubes():
+    """Return all non-system cube names from TM1."""
+    try:
+        from core.tm1_connect import get_session
+        session = get_session()
+        r = session.get(f"{session.base_url}/Cubes?$select=Name")
+        r.raise_for_status()
+        cubes = sorted(
+            c['Name'] for c in r.json().get('value', [])
+            if not c['Name'].startswith('}')
+        )
+        return jsonify({'cubes': cubes})
+    except Exception as e:
+        log.error(f'TM1 cubes error: {e}')
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/tm1/views')
+def api_tm1_views():
+    """Return all non-system view names for a cube."""
+    cube = request.args.get('cube', '').strip()
+    if not cube:
+        return jsonify({'error': 'cube parameter required'}), 400
+    try:
+        from core.tm1_connect import get_session
+        session = get_session()
+        r = session.get(f"{session.base_url}/Cubes('{cube}')/Views?$select=Name")
+        r.raise_for_status()
+        views = sorted(
+            v['Name'] for v in r.json().get('value', [])
+            if not v['Name'].startswith('}')
+        )
+        return jsonify({'views': views})
+    except Exception as e:
+        log.error(f'TM1 views error: {e}')
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/tm1/mdx')
+def api_tm1_mdx():
+    """Return the MDX query for a named view (MDX views only)."""
+    cube = request.args.get('cube', '').strip()
+    view = request.args.get('view', '').strip()
+    if not cube or not view:
+        return jsonify({'error': 'cube and view parameters required'}), 400
+    try:
+        from core.tm1_connect import get_session
+        session = get_session()
+        r = session.get(f"{session.base_url}/Cubes('{cube}')/Views('{view}')?$select=Name,MDX")
+        r.raise_for_status()
+        data = r.json()
+        mdx  = data.get('MDX') or ''
+        return jsonify({
+            'mdx':     mdx or None,
+            'type':    'MDXView' if mdx else 'NativeView',
+            'message': None if mdx else 'Native view — no MDX query',
+        })
+    except Exception as e:
+        log.error(f'TM1 MDX error: {e}')
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/groups')
 def api_groups():
     """Serve the groups.json security configuration."""
