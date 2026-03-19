@@ -169,6 +169,32 @@ body { display: flex; flex-direction: column; }
 
 /* MDX inline in drawer tab expand */
 .mdx-pre-inline { font-family: 'Courier New', monospace; font-size: 10px; color: var(--blue); background: var(--bg); padding: 8px 10px; border-radius: 4px; overflow-x: auto; white-space: pre; margin-top: 4px; border: 1px solid var(--border); display: block; line-height: 1.5; max-height: 140px; }
+
+/* PAGE TABS */
+#tab-strip { display: flex; align-items: center; gap: 2px; padding: 0 14px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.tab-btn { padding: 8px 16px; font-size: 12px; font-family: var(--font-ui); color: var(--muted); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; transition: color .15s, border-color .15s; margin-bottom: -1px; }
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 500; }
+
+/* DASHBOARD */
+#dashboard-wrap { flex: 1; overflow-y: auto; padding: 18px 20px; display: none; }
+.dash-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.dash-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+.dash-card-val { font-size: 32px; font-weight: 700; line-height: 1; margin-bottom: 5px; font-family: monospace; }
+.dash-card-lbl { font-size: 11px; color: var(--muted); }
+.dash-section { margin-bottom: 28px; }
+.dash-section-title { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 8px; display: flex; align-items: baseline; gap: 8px; }
+.dash-section-count { font-size: 12px; font-weight: 600; color: var(--text2); letter-spacing: 0; text-transform: none; }
+.dash-table { width: 100%; border-collapse: collapse; font-size: 12px; background: var(--card); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.dash-table th { text-align: left; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; padding: 8px 12px; border-bottom: 1px solid var(--border); font-weight: 500; background: var(--faint); }
+.dash-table td { padding: 8px 12px; border-bottom: 1px solid var(--faint); color: var(--text2); vertical-align: middle; }
+.dash-table tbody tr:last-child td { border-bottom: none; }
+.dash-table tbody tr:hover td { background: rgba(255,255,255,.02); }
+:root.light .dash-table tbody tr:hover td { background: rgba(0,0,0,.02); }
+.dash-empty { font-size: 11px; color: var(--muted); font-style: italic; padding: 10px 0; }
+.dash-book-name { font-weight: 500; color: var(--text); }
+.dash-stale-badge { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 10px; font-family: monospace; border: 1px solid var(--coral); color: var(--coral); }
+.dash-never-badge { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 10px; border: 1px solid var(--coral); color: var(--coral); background: rgba(247,129,102,.08); }
 </style>
 </head>
 <body>
@@ -189,6 +215,11 @@ body { display: flex; flex-direction: column; }
     <div class="theme-track" id="themeTrack"><div class="theme-thumb"></div></div>
     <span id="themeLabel">Dark</span>
   </div>
+</div>
+
+<div id="tab-strip">
+  <button class="tab-btn active" id="tab-tree-btn" onclick="switchTab('tree')">Tree</button>
+  <button class="tab-btn" id="tab-dashboard-btn" onclick="switchTab('dashboard')">Dashboard</button>
 </div>
 
 <div id="toolbar">
@@ -233,6 +264,7 @@ body { display: flex; flex-direction: column; }
 
 
 <div id="tree-wrap"><div id="tree"></div></div>
+<div id="dashboard-wrap"></div>
 
 <div id="detail-drawer">
   <div id="drawer-header">
@@ -882,12 +914,182 @@ async function loadPAWTree() {
     TREE = normalise(data.tree);
     updateStats();
     renderTree(TREE);
+    if (activeTab === 'dashboard') renderDashboard();
   } catch(e) { showError(e.message); }
 }
 
 loadGroups();
 loadCubes();
 loadPAWTree();
+
+// ── TAB SWITCHING ─────────────────────────────────────────────────────────────
+var activeTab = 'tree';
+function switchTab(tab) {
+  activeTab = tab;
+  document.getElementById('tab-tree-btn').classList.toggle('active', tab === 'tree');
+  document.getElementById('tab-dashboard-btn').classList.toggle('active', tab === 'dashboard');
+  document.getElementById('toolbar').style.display        = tab === 'tree' ? '' : 'none';
+  document.getElementById('tree-wrap').style.display      = tab === 'tree' ? '' : 'none';
+  document.getElementById('dashboard-wrap').style.display = tab === 'dashboard' ? 'block' : 'none';
+  if (tab === 'dashboard') {
+    if (TREE.length) renderDashboard();
+    else document.getElementById('dashboard-wrap').innerHTML =
+      '<div style="padding:20px;font-size:11px;color:var(--muted)">Loading tree data — switch back in a moment.</div>';
+  }
+  // Close drawer when switching tabs
+  document.getElementById('detail-drawer').classList.remove('open');
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────────────
+function buildDashData() {
+  var allNodes = flattenAll(TREE);
+  var books    = allNodes.filter(function(n) { return n.type === 'book'; });
+  var now      = new Date();
+
+  // Build known-user set from every owner/createdBy/modifiedBy/usedBy seen in
+  // the tree — PAW user folders (owner) plus anyone who has touched a book.
+  var knownUsers = new Set();
+  allNodes.forEach(function(n) {
+    if (n.owner)      knownUsers.add(n.owner);
+    if (n.createdBy)  knownUsers.add(n.createdBy);
+    if (n.modifiedBy) knownUsers.add(n.modifiedBy);
+    if (n.usedBy)     knownUsers.add(n.usedBy);
+  });
+  // Derive PAW user list specifically from private folder owner nodes
+  var privateRoot  = TREE.find(function(n) { return n.id === 'f-private'; });
+  var pawUserNames = new Set((privateRoot ? privateRoot.children || [] : [])
+    .map(function(n) { return n.owner; }).filter(Boolean));
+
+  function daysSince(iso) {
+    if (!iso) return null;
+    return Math.floor((now - new Date(iso)) / 86400000);
+  }
+
+  var stale90 = books.filter(function(b) {
+    var d = daysSince(b.usedDate); return d === null || d > 90;
+  });
+  var stale60 = books.filter(function(b) {
+    var d = daysSince(b.usedDate); return d === null || d > 60;
+  }).map(function(b) {
+    return Object.assign({}, b, { staleDays: daysSince(b.usedDate) });
+  }).sort(function(a, b) {
+    if (a.staleDays === null && b.staleDays === null) return 0;
+    if (a.staleDays === null) return -1;
+    if (b.staleDays === null) return 1;
+    return b.staleDays - a.staleDays;
+  });
+
+  // Orphaned: shared books whose creator is NOT a known PAW user (private folder owner).
+  // Indicates the creator may no longer have a PAW account.
+  var orphaned = books.filter(function(b) {
+    if (b.private) return false; // private books always have a known owner
+    var creator = b.createdBy || '';
+    return creator && !pawUserNames.has(creator);
+  });
+
+  var recent7 = books.filter(function(b) {
+    var d = daysSince(b.modifiedDate); return d !== null && d <= 7;
+  }).sort(function(a, b) { return new Date(b.modifiedDate) - new Date(a.modifiedDate); });
+
+  return {
+    totalBooks:    books.length,
+    privateBooks:  books.filter(function(b) { return b.private; }).length,
+    stale90Count:  stale90.length,
+    orphanedCount: orphaned.length,
+    stale60:       stale60,
+    orphaned:      orphaned,
+    recent7:       recent7,
+  };
+}
+
+function dashLocation(node) {
+  var parts = (node.path || '').split('/').filter(Boolean);
+  parts.pop(); // drop the asset name itself
+  return parts.join(' › ') || '—';
+}
+
+function renderDashboard() {
+  var d  = buildDashData();
+  var el = document.getElementById('dashboard-wrap');
+
+  // ── Stat cards ──────────────────────────────────────────────────────────────
+  var html = '<div class="dash-cards">'
+    + '<div class="dash-card"><div class="dash-card-val" style="color:var(--blue)">'   + d.totalBooks    + '</div><div class="dash-card-lbl">Total books</div></div>'
+    + '<div class="dash-card"><div class="dash-card-val" style="color:var(--coral)">'  + d.stale90Count  + '</div><div class="dash-card-lbl">Stale 90+ days</div></div>'
+    + '<div class="dash-card"><div class="dash-card-val" style="color:var(--amber)">'  + d.privateBooks  + '</div><div class="dash-card-lbl">Private books</div></div>'
+    + '<div class="dash-card"><div class="dash-card-val" style="color:var(--muted)">'  + d.orphanedCount + '</div><div class="dash-card-lbl">Orphaned books</div></div>'
+    + '</div>';
+
+  // ── Stale books (60+ days) ───────────────────────────────────────────────────
+  html += '<div class="dash-section"><div class="dash-section-title">Stale books'
+    + ' · not opened in 60+ days <span class="dash-section-count">' + d.stale60.length + '</span></div>';
+  if (d.stale60.length) {
+    html += '<table class="dash-table"><thead><tr>'
+      + '<th>Book</th><th>Location</th><th>Owner / Created by</th><th>Last opened</th><th>Last opened by</th>'
+      + '</tr></thead><tbody>';
+    d.stale60.forEach(function(b) {
+      var staleCell = b.staleDays === null
+        ? '<span class="dash-never-badge">Never opened</span>'
+        : '<span class="dash-stale-badge">' + b.staleDays + 'd ago</span>';
+      html += '<tr>'
+        + '<td><span class="dash-book-name">' + (b.private ? '🔒 ' : '') + b.name + '</span></td>'
+        + '<td style="color:var(--muted);font-size:11px">' + dashLocation(b) + '</td>'
+        + '<td>' + (b.owner || b.createdBy || '—') + '</td>'
+        + '<td>' + staleCell + '</td>'
+        + '<td style="color:var(--muted)">' + (b.usedBy || '—') + '</td>'
+        + '</tr>';
+    });
+    html += '</tbody></table>';
+  } else {
+    html += '<div class="dash-empty">All books have been opened within the last 60 days.</div>';
+  }
+  html += '</div>';
+
+  // ── Orphaned books ──────────────────────────────────────────────────────────
+  html += '<div class="dash-section"><div class="dash-section-title">Orphaned books'
+    + ' · creator not a current PAW user <span class="dash-section-count">' + d.orphaned.length + '</span></div>';
+  if (d.orphaned.length) {
+    html += '<table class="dash-table"><thead><tr>'
+      + '<th>Book</th><th>Location</th><th>Created by</th><th>Created</th><th>Last modified</th>'
+      + '</tr></thead><tbody>';
+    d.orphaned.forEach(function(b) {
+      html += '<tr>'
+        + '<td><span class="dash-book-name">' + b.name + '</span></td>'
+        + '<td style="color:var(--muted);font-size:11px">' + dashLocation(b) + '</td>'
+        + '<td style="color:var(--coral)">' + (b.createdBy || '—') + '</td>'
+        + '<td style="color:var(--muted)">' + (b.createdDate ? new Date(b.createdDate).toLocaleDateString() : '—') + '</td>'
+        + '<td style="color:var(--muted)">' + relTime(b.modifiedDate) + '</td>'
+        + '</tr>';
+    });
+    html += '</tbody></table>';
+  } else {
+    html += '<div class="dash-empty">No orphaned books — all creators are current PAW users.</div>';
+  }
+  html += '</div>';
+
+  // ── Recently modified (last 7 days) ─────────────────────────────────────────
+  html += '<div class="dash-section"><div class="dash-section-title">Recently modified'
+    + ' · last 7 days <span class="dash-section-count">' + d.recent7.length + '</span></div>';
+  if (d.recent7.length) {
+    html += '<table class="dash-table"><thead><tr>'
+      + '<th>Book</th><th>Location</th><th>Modified by</th><th>Modified</th>'
+      + '</tr></thead><tbody>';
+    d.recent7.forEach(function(b) {
+      html += '<tr>'
+        + '<td><span class="dash-book-name">' + (b.private ? '🔒 ' : '') + b.name + '</span></td>'
+        + '<td style="color:var(--muted);font-size:11px">' + dashLocation(b) + '</td>'
+        + '<td>' + (b.modifiedBy || '—') + '</td>'
+        + '<td style="color:var(--teal)">' + relTime(b.modifiedDate) + '</td>'
+        + '</tr>';
+    });
+    html += '</tbody></table>';
+  } else {
+    html += '<div class="dash-empty">No books modified in the last 7 days.</div>';
+  }
+  html += '</div>';
+
+  el.innerHTML = html;
+}
 </script>
 </body>
 </html>
