@@ -7,7 +7,8 @@ Run this before running build_cst_model.py on an existing environment.
 """
 
 import sys
-sys.path.insert(0, '/home/jdlove/tm1-governance')
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from core.tm1py_connect import get_tm1_service
 
 tm1 = get_tm1_service()

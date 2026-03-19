@@ -47,7 +47,8 @@ import sys
 import os
 import json
 import time
-sys.path.insert(0, '/home/jdlove/tm1-governance')
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from core.tm1_connect import get_session
 
 session  = get_session()

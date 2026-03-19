@@ -196,7 +196,7 @@ Live group membership and folder permissions are resolved at runtime via:
 - **`cube_map/tm1_model.json`** is a generated cache — never edit manually, always regenerate via `/api/refresh`
 - **Python 3.12** — ships with Ubuntu 24.04, all scripts target this version
 - **Virtual environment** at `venv/` — always activate before running scripts
-- **All scripts** use `sys.path.insert(0, '/home/jdlove/tm1-governance')` and import from `core.*`
+- **All scripts** use `sys.path.insert(0, str(Path(__file__).resolve().parent...))` (dynamic, relative to `__file__`) and import from `core.*`
 
 ---
 

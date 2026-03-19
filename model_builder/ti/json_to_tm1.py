@@ -20,7 +20,8 @@ import os
 import sys
 import json
 import argparse
-sys.path.insert(0, '/home/jdlove/tm1-governance')
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from core.tm1_connect import get_session
 
 # ---------------------------------------------------------------------------

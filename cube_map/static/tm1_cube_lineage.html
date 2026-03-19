@@ -4626,15 +4626,13 @@ const TYPE_LABEL = {
 
 /* ── CUBE DATA ──────────────────────────────────────────────── */
 /*
-  The diagram loads cube data from tm1_model.json (live mode) when served
-  via a local web server. If the file isn't found it falls back to the
+  The diagram loads cube data from the Flask API (/api/model) when served
+  via the app. If the endpoint isn't available it falls back to the
   embedded sample data below so the diagram always renders.
 
   To connect to your live model:
-    1. Run:  python3 extract_tm1_model.py --prefix CST
-    2. Copy tm1_model.json next to tm1_cube_lineage.html
-    3. Serve locally:  python3 -m http.server 8080
-    4. Open:  http://localhost:8080/tm1_cube_lineage.html
+    1. POST /api/refresh  — extracts fresh data from TM1 into cube_map/tm1_model.json
+    2. Open:  http://localhost:8080  — diagram loads live data via /api/model
 */
 const CUBES = {
   'CST GL Input': {
@@ -4810,18 +4808,18 @@ function loadModel(cubesObj, meta) {
   cy.layout({name:'dagre', rankDir:'LR', nodeSep:45, rankSep:100, edgeSep:20, padding:60, animate:true, animationDuration:600}).run();
 }
 
-// Try to load tm1_model.json; fall back to embedded CUBES
-fetch('tm1_model.json')
+// Try to load live model from API; fall back to embedded CUBES
+fetch('/api/model')
   .then(r => { if (!r.ok) throw new Error('not found'); return r.json(); })
   .then(data => {
-    console.log('✅ Loaded tm1_model.json — live model data');
+    console.log('✅ Loaded /api/model — live model data');
     // Merge loaded cubes over CUBES (live data wins)
     Object.assign(CUBES, data.cubes || {});
     loadModel(CUBES, data.meta);
-    showToast('Live model loaded from tm1_model.json');
+    showToast('Live model loaded from /api/model');
   })
   .catch(() => {
-    console.log('ℹ️  tm1_model.json not found — using embedded sample data');
+    console.log('ℹ️  /api/model not available — using embedded sample data');
     // Use embedded CUBES as-is
   });
 

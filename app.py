@@ -5,9 +5,8 @@ Serves the CubeMap diagram and provides a live refresh API
 that pulls fresh data from TM1 V12 on demand.
 
 Usage:
-    cd ~/tm1-governance
-    pip install flask
-    python3 app.py
+    cd ~/apps/tm1_governance
+    ./run.sh
 
 Then open: http://localhost:8080
 
@@ -82,6 +81,54 @@ def health_monitor():
     if not (static_dir / 'tm1_health_monitor.html').exists():
         abort(404, 'health_monitor/static/tm1_health_monitor.html not found')
     return send_from_directory(str(static_dir), 'tm1_health_monitor.html')
+
+
+@app.route('/api/model')
+def api_model():
+    """Return the cached TM1 model JSON."""
+    if not MODEL_FILE.exists():
+        return jsonify({'error': 'Model cache not found — POST /api/refresh to extract'}), 404
+    with open(MODEL_FILE, encoding='utf-8') as f:
+        return jsonify(json.load(f))
+
+
+@app.route('/api/refresh', methods=['POST'])
+def api_refresh():
+    """Re-extract the TM1 model and update the cache."""
+    if _refresh_status['running']:
+        return jsonify({'status': 'already_running'}), 409
+
+    def do_refresh():
+        with _refresh_lock:
+            _refresh_status['running'] = True
+            _refresh_status['error'] = None
+            try:
+                from cube_map.extract_tm1_model import extract_model
+                extract_model()
+                _refresh_status['lastResult'] = 'ok'
+                log.info('Model refresh completed successfully')
+            except Exception as e:
+                _refresh_status['lastResult'] = 'error'
+                _refresh_status['error'] = str(e)
+                log.error(f'Model refresh failed: {e}')
+            finally:
+                _refresh_status['running'] = False
+                _refresh_status['lastRun'] = datetime.now(timezone.utc).isoformat()
+
+    threading.Thread(target=do_refresh, daemon=True).start()
+    return jsonify({'status': 'started'})
+
+
+@app.route('/api/status')
+def api_status():
+    """Return server info and last-refresh status."""
+    return jsonify({
+        'status':      'ok',
+        'baseDir':     str(BASE_DIR),
+        'modelFile':   str(MODEL_FILE),
+        'modelCached': MODEL_FILE.exists(),
+        'refresh':     _refresh_status,
+    })
 
 
 @app.route('/api/groups')

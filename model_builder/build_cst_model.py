@@ -17,7 +17,7 @@ import runpy
 import time
 from pathlib import Path
 
-sys.path.insert(0, '/home/jdlove/tm1-governance')
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 BASE = Path(__file__).parent
 
 

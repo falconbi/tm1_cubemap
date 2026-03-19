@@ -18,7 +18,8 @@ import argparse
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-sys.path.insert(0, '/home/jdlove/tm1-governance')
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # ── Imports ───────────────────────────────────────────────────────────────
 try:
