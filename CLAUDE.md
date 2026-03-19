@@ -77,13 +77,16 @@ tm1-governance/
 │   ├── tm1_connect.py             # TM1 REST session (raw requests)
 │   ├── tm1py_connect.py           # TM1py session (higher-level)
 │   ├── paw_connect.py             # PAW Authentik PKCE auth
-│   └── groups.py                  # Live group/permission resolver
+│   ├── groups.py                  # Live group/permission resolver (TODO)
+│   └── groups.json                # Group display annotations (colour, tm1_access)
 │
 ├── model_builder/                 # Tool 1: Build/rebuild TM1 model (WIP)
 │   ├── build_gbl_model.py         # Master runner — GBL layer
 │   ├── build_cst_model.py         # Master runner — CST layer
 │   ├── cleanup_gbl_model.py
 │   ├── cleanup_cst_model.py
+│   ├── ti_lint.py                 # TI code linter/formatter
+│   ├── pro_to_json.py             # Convert .pro files to JSON
 │   ├── gbl/                       # create_gbl_*.py scripts
 │   ├── cst/                       # create_cst_*.py scripts
 │   ├── ti/                        # TI JSON definitions + deploy scripts
@@ -96,11 +99,12 @@ tm1-governance/
 │       └── tm1_cube_lineage.html  # Self-contained Cytoscape diagram
 │
 ├── paw_tree/                      # Tool 3: PAW workbook tree explorer
+│   ├── paw_governance_explorer.jsx  # React prototype — not yet integrated
 │   └── static/
 │       └── tm1_paw_tree.html
 │
 ├── health_monitor/                # Tool 4: Ops health dashboard
-│   ├── backend.py                 # Flask routes, APScheduler, DuckDB
+│   ├── backend.py                 # Flask routes, APScheduler, DuckDB (TODO)
 │   └── static/
 │       └── tm1_health_monitor.html
 │
@@ -108,7 +112,7 @@ tm1-governance/
 ├── requirements.txt
 ├── CLAUDE.md                      # This file
 ├── .env                           # Connection secrets — NOT in git
-├── groups.json                    # Group display annotations (colour, tm1_access)
+├── .env.example                   # Placeholder template — safe to commit
 │
 ├── docs/                          # Reference documents
 │   ├── TM1_Governance_Suite_Design.docx
@@ -116,7 +120,7 @@ tm1-governance/
 │   ├── tm1_health_monitor_requirements.docx
 │   └── PAW_Field_Reference.docx
 │
-└── archive/                       # Old/backup files — ignore
+└── archive/                       # Legacy/backup files — ignore
 ```
 
 ---
@@ -128,10 +132,10 @@ tm1-governance/
 | GET | `/` | Serve CubeMap HTML |
 | GET | `/workbook-tree` | Serve PAW Tree HTML |
 | GET | `/health-monitor` | Serve Health Monitor HTML |
-| GET | `/api/model` | Return cached `tm1_model.json` |
+| GET | `/api/model` | Return cached `cube_map/tm1_model.json` |
 | POST | `/api/refresh` | Re-extract model from TM1, update cache |
 | GET | `/api/status` | Server + last-refresh info |
-| GET | `/api/groups` | Return resolved groups (live from Authentik + PAW) |
+| GET | `/api/groups` | Return resolved groups (reads `core/groups.json`) |
 | GET | `/api/paw/tree` | Walk PAW folder tree, return JSON |
 
 ---
@@ -144,6 +148,7 @@ tm1-governance/
 | TM1 connection | TM1py 2.2.4 | Higher-level API wrapper |
 | TM1 raw REST | requests 2.32 | Used for TI deploy, auth token |
 | PAW auth | requests + PKCE | 6-step Authentik OAuth2 flow |
+| Config | python-dotenv 1.1 | Loads `.env` at startup |
 | Diagrams (frontend) | Cytoscape.js 3.33.1 + Dagre | CubeMap graph rendering |
 | Frontend | Vanilla HTML/CSS/JS | No framework — self-contained files |
 | Health monitor DB | DuckDB | Session history, user activity |
@@ -156,14 +161,14 @@ tm1-governance/
 ## Model Builder — Layer Dependency Order
 
 **Build order (fresh environment):**
-1. `create_json_ti_meta_data_gbl_period.py` → generates TI JSON
-2. `create_ti_meta_data_gbl_period.py` → deploys and runs Period TI
-3. `build_gbl_model.py` → builds all GBL dimensions/cubes
-4. `build_cst_model.py` → builds all CST dimensions/cubes
+1. `model_builder/ti/create_json_ti_meta_data_gbl_period.py` → generates TI JSON
+2. `model_builder/ti/create_ti_meta_data_gbl_period.py` → deploys and runs Period TI
+3. `model_builder/build_gbl_model.py` → builds all GBL dimensions/cubes
+4. `model_builder/build_cst_model.py` → builds all CST dimensions/cubes
 
 **Cleanup order (reverse dependency — CST first, then GBL):**
-1. `cleanup_cst_model.py`
-2. `cleanup_gbl_model.py`
+1. `model_builder/cleanup_cst_model.py`
+2. `model_builder/cleanup_gbl_model.py`
 
 GBL = Global shared infrastructure (Account, Version, Department, Currency, Assumptions).
 CST = Costing module — depends on GBL. Never delete GBL while CST cubes exist.
@@ -172,24 +177,26 @@ CST = Costing module — depends on GBL. Never delete GBL while CST cubes exist.
 
 ## Groups & Security
 
-`groups.json` stores display annotations only (colour, tm1_access level).
+`core/groups.json` stores display annotations only (colour, tm1_access level).
 Live group membership and folder permissions are resolved at runtime via:
 - **Authentik API** (`/api/v3/core/groups/`) — source of truth for groups and members
 - **PAW Content Services API** — source of truth for folder permissions
 
-`core/groups.py` merges both sources with the annotations in `groups.json`.
+`core/groups.py` merges both sources with the annotations in `groups.json` (not yet built).
 
 ---
 
 ## Key Conventions
 
 - **Config lives in `.env`** — never hardcode IPs or credentials in source files
+- **`.env.example`** is the safe-to-commit template — keep it up to date when adding new vars
 - **`tm1_connect.py`** — use for raw REST calls (TI deploy, auth)
 - **`tm1py_connect.py`** — use for all dimension/cube build operations
 - **HTML tools are self-contained** — they can run standalone with embedded sample data; the Flask backend adds live data
-- **`tm1_model.json`** is a generated cache — never edit manually, always regenerate via `/api/refresh`
+- **`cube_map/tm1_model.json`** is a generated cache — never edit manually, always regenerate via `/api/refresh`
 - **Python 3.12** — ships with Ubuntu 24.04, all scripts target this version
 - **Virtual environment** at `venv/` — always activate before running scripts
+- **All scripts** use `sys.path.insert(0, '/home/jdlove/tm1-governance')` and import from `core.*`
 
 ---
 
@@ -210,12 +217,10 @@ Then open:
 
 ## Current WIP / Known Issues
 
-- Model Builder (GBL + CST) still being developed — not all scripts are complete
+- Model Builder CST scripts not yet complete
 - Health Monitor backend (`health_monitor/backend.py`) not yet built — HTML renders with sample data
-- `groups.py` live resolver not yet built — `api/groups` currently reads static `groups.json`
-- `paw_governance_explorer.jsx` is a React prototype — not integrated into Flask yet
-- Credentials are currently hardcoded in `tm1_connect.py` and `paw_connect.py` — move to `.env`
-- `older files/` and `POST` directory are legacy — safe to ignore
+- `core/groups.py` live resolver not yet built — `api/groups` currently reads static `core/groups.json`
+- `paw_tree/paw_governance_explorer.jsx` is a React prototype — not integrated into Flask yet
 
 ---
 
@@ -227,3 +232,16 @@ Then open:
 | `TM1_Build_Script_Reference.docx` | Every build script described, build/rebuild sequences |
 | `tm1_health_monitor_requirements.docx` | Health Monitor tab-by-tab requirements spec |
 | `PAW_Field_Reference.docx` | PAW Content Services API field reference |
+
+---
+
+## TODO
+
+- [ ] Complete CST Model Builder scripts
+- [ ] Build `core/groups.py` live Authentik + PAW group resolver
+- [ ] Build Health Monitor backend (Flask + DuckDB + APScheduler)
+- [ ] Move `core/groups.json` to annotations only (strip any live data)
+- [ ] Connect `paw_tree/paw_governance_explorer.jsx` into Flask
+- [ ] Add GitHub remote backup
+- [ ] Set up gunicorn for production
+- [ ] Add second monitor to dev setup
