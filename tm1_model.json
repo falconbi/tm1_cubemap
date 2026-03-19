@@ -1,0 +1,316 @@
+{
+  "meta": {
+    "extractedAt": "2026-03-18T11:25:26.904124+00:00",
+    "cubeCount": 10,
+    "archScore": 70
+  },
+  "elements": {
+    "nodes": [
+      {
+        "data": {
+          "id": "CST Activity Allocation",
+          "label": "CST Activity Allocation",
+          "type": "CST",
+          "color": "#8957e5",
+          "complexity": 0,
+          "desc": "CST Activity Allocation \u2014 No description found.",
+          "dims": [
+            {
+              "n": "CST Activity",
+              "k": "cst"
+            },
+            {
+              "n": "CST Cost Pool",
+              "k": "cst"
+            },
+            {
+              "n": "GBL Period",
+              "k": "global"
+            },
+            {
+              "n": "GBL Version",
+              "k": "global"
+            },
+            {
+              "n": "CST Activity Allocation Measure",
+              "k": "measure"
+            }
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": "CST Activity Driver",
+          "label": "CST Activity Driver",
+          "type": "CST",
+          "color": "#8957e5",
+          "complexity": 0,
+          "desc": "CST Activity Driver \u2014 No description found.",
+          "dims": [
+            {
+              "n": "CST Activity",
+              "k": "cst"
+            },
+            {
+              "n": "CST Service Line",
+              "k": "cst"
+            },
+            {
+              "n": "GBL Period",
+              "k": "global"
+            },
+            {
+              "n": "GBL Version",
+              "k": "global"
+            },
+            {
+              "n": "CST Activity Driver Measure",
+              "k": "measure"
+            }
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": "CST Allocation Config",
+          "label": "CST Allocation Config",
+          "type": "CST",
+          "color": "#8957e5",
+          "complexity": 0,
+          "desc": "CST Allocation Config \u2014 No description found.",
+          "dims": [
+            {
+              "n": "CST Config Item",
+              "k": "cst"
+            },
+            {
+              "n": "GBL Version",
+              "k": "global"
+            },
+            {
+              "n": "CST Allocation Config Measure",
+              "k": "measure"
+            }
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": "CST Allocation Reconciliation",
+          "label": "CST Allocation Reconciliation",
+          "type": "CST",
+          "color": "#8957e5",
+          "complexity": 0,
+          "desc": "CST Allocation Reconciliation \u2014 No description found.",
+          "dims": [
+            {
+              "n": "CST Reconciliation Check",
+              "k": "cst"
+            },
+            {
+              "n": "GBL Period",
+              "k": "global"
+            },
+            {
+              "n": "GBL Version",
+              "k": "global"
+            },
+            {
+              "n": "CST Allocation Reconciliation Measure",
+              "k": "measure"
+            }
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": "CST Cost Pool Allocation",
+          "label": "CST Cost Pool Allocation",
+          "type": "CST",
+          "color": "#8957e5",
+          "complexity": 0,
+          "desc": "CST Cost Pool Allocation \u2014 No description found.",
+          "dims": [
+            {
+              "n": "CST Cost Pool",
+              "k": "cst"
+            },
+            {
+              "n": "GBL Account",
+              "k": "global"
+            },
+            {
+              "n": "GBL Period",
+              "k": "global"
+            },
+            {
+              "n": "GBL Version",
+              "k": "global"
+            },
+            {
+              "n": "CST Cost Pool Allocation Measure",
+              "k": "measure"
+            }
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": "CST GL Input",
+          "label": "CST GL Input",
+          "type": "CST",
+          "color": "#8957e5",
+          "complexity": 0,
+          "desc": "CST GL Input \u2014 No description found.",
+          "dims": [
+            {
+              "n": "GBL Account",
+              "k": "global"
+            },
+            {
+              "n": "GBL Department",
+              "k": "global"
+            },
+            {
+              "n": "GBL Period",
+              "k": "global"
+            },
+            {
+              "n": "GBL Version",
+              "k": "global"
+            },
+            {
+              "n": "CST GL Input Measure",
+              "k": "measure"
+            }
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": "CST Pool Driver",
+          "label": "CST Pool Driver",
+          "type": "CST",
+          "color": "#8957e5",
+          "complexity": 0,
+          "desc": "CST Pool Driver \u2014 No description found.",
+          "dims": [
+            {
+              "n": "CST Cost Pool",
+              "k": "cst"
+            },
+            {
+              "n": "CST Activity",
+              "k": "cst"
+            },
+            {
+              "n": "GBL Period",
+              "k": "global"
+            },
+            {
+              "n": "GBL Version",
+              "k": "global"
+            },
+            {
+              "n": "CST Pool Driver Measure",
+              "k": "measure"
+            }
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": "CST Profit and Loss Report",
+          "label": "CST Profit and Loss Report",
+          "type": "CST",
+          "color": "#8957e5",
+          "complexity": 0,
+          "desc": "CST Profit and Loss Report \u2014 No description found.",
+          "dims": [
+            {
+              "n": "GBL Account",
+              "k": "global"
+            },
+            {
+              "n": "CST Service Line",
+              "k": "cst"
+            },
+            {
+              "n": "GBL Period",
+              "k": "global"
+            },
+            {
+              "n": "GBL Version",
+              "k": "global"
+            },
+            {
+              "n": "CST Allocation Stage",
+              "k": "cst"
+            },
+            {
+              "n": "CST Profit and Loss Report Measure",
+              "k": "measure"
+            }
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": "CST Service Line Cost",
+          "label": "CST Service Line Cost",
+          "type": "CST",
+          "color": "#8957e5",
+          "complexity": 0,
+          "desc": "CST Service Line Cost \u2014 No description found.",
+          "dims": [
+            {
+              "n": "CST Service Line",
+              "k": "cst"
+            },
+            {
+              "n": "CST Activity",
+              "k": "cst"
+            },
+            {
+              "n": "GBL Period",
+              "k": "global"
+            },
+            {
+              "n": "GBL Version",
+              "k": "global"
+            },
+            {
+              "n": "CST Service Line Cost Measure",
+              "k": "measure"
+            }
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": "GBL Assumptions",
+          "label": "GBL Assumptions",
+          "type": "GBL",
+          "color": "#388bfd",
+          "complexity": 0,
+          "desc": "GBL Assumptions \u2014 No description found.",
+          "dims": [
+            {
+              "n": "GBL Version",
+              "k": "global"
+            },
+            {
+              "n": "GBL Period",
+              "k": "global"
+            },
+            {
+              "n": "GBL Assumptions Measure",
+              "k": "global"
+            }
+          ]
+        }
+      }
+    ],
+    "edges": []
+  }
+}
