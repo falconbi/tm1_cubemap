@@ -1,15 +1,20 @@
+import os
 import requests
 import json
+from pathlib import Path
 from urllib.parse import urlparse, parse_qs, urlencode, unquote, quote
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).parent.parent / '.env')
 
 # -----------------------------------------------------------------------
 # PAW Connection Configuration
 # -----------------------------------------------------------------------
 PAW_CONFIG = {
-    'paw_host':        'http://192.168.1.223',
-    'authentik_host':  'http://192.168.1.171:9000',
-    'username':        'akadmin',
-    'password':        'korpkhun8049',
+    'paw_host':       os.environ['PAW_HOST'],
+    'authentik_host': os.environ['AUTHENTIK_HOST'],
+    'username':       os.environ['AUTHENTIK_USERNAME'],
+    'password':       os.environ['AUTHENTIK_PASSWORD'],
 }
 
 # -----------------------------------------------------------------------

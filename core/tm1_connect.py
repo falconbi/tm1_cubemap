@@ -1,25 +1,30 @@
+import os
 import requests
+from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).parent.parent / '.env')
 
 TM1_CONFIG = {
-    'address':       '192.168.1.178',
-    'port':          4444,
-    'database':      'TM1 Governance',
-    'client_id':     'N10fSjnjkzYSNJl4djGSBL2OpLbalyXX',
-    'client_secret': 'VgkxMKlitfPg3K4b4kERoK0SVNjdA2UzdW6Ig1OlNE2bcho8l0mytOTWh2SJVmvH',
-    'user':          'akadmin',
+    'address':       os.environ['TM1_ADDRESS'],
+    'port':          int(os.environ['TM1_PORT']),
+    'database':      os.environ['TM1_DATABASE'],
+    'client_id':     os.environ['TM1_CLIENT_ID'],
+    'client_secret': os.environ['TM1_CLIENT_SECRET'],
+    'user':          os.environ['TM1_USER'],
 }
 
 def get_session():
     cfg = TM1_CONFIG
     base = f"http://{cfg['address']}:{cfg['port']}/tm1"
-    
+
     auth = requests.post(
         f"{base}/auth/v1/session",
         auth=(cfg['client_id'], cfg['client_secret']),
         headers={'Content-Type': 'application/json'},
         json={'User': cfg['user']}
     )
-    
+
     token = auth.cookies.get('TM1SessionId')
     session = requests.Session()
     session.cookies.set('TM1SessionId', token)

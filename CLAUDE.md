@@ -189,7 +189,7 @@ Live group membership and folder permissions are resolved at runtime via:
 - **HTML tools are self-contained** — they can run standalone with embedded sample data; the Flask backend adds live data
 - **`tm1_model.json`** is a generated cache — never edit manually, always regenerate via `/api/refresh`
 - **Python 3.12** — ships with Ubuntu 24.04, all scripts target this version
-- **Virtual environment** at `env/` — always activate before running scripts
+- **Virtual environment** at `venv/` — always activate before running scripts
 
 ---
 
@@ -197,7 +197,7 @@ Live group membership and folder permissions are resolved at runtime via:
 
 ```bash
 cd ~/tm1-governance
-source env/bin/activate
+source venv/bin/activate
 python3 app.py
 ```
 
