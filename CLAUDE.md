@@ -21,7 +21,7 @@ All tools share a single Flask server (`app.py`) and common connection helpers i
 ## Infrastructure — Read This First
 
 ### Host Machine (Ubuntu 24.04)
-- Runs this Python app, Flask server, and Authentik (SSO)
+- Runs this Python app, Flask server, and Authentik (SSO used only for PAW login)
 - IP: `192.168.1.171` (Authentik listens on port 9000)
 - All development happens here
 
@@ -179,10 +179,29 @@ CST = Costing module — depends on GBL. Never delete GBL while CST cubes exist.
 
 `core/groups.json` stores display annotations only (colour, tm1_access level).
 Live group membership and folder permissions are resolved at runtime via:
-- **Authentik API** (`/api/v3/core/groups/`) — source of truth for groups and members
-- **PAW Content Services API** — source of truth for folder permissions
+- **PAW Content Services API** — source of truth for groups, members, folder permissions, book ownership, and user display names
+- **TM1 REST API** — source of truth for active sessions and connected client list
 
 `core/groups.py` merges both sources with the annotations in `groups.json` (not yet built).
+
+### Identity Provider Independence
+
+**The governance suite must not depend on any specific identity provider.**
+Authentik (or any future SSO system — Azure AD, Okta, etc.) is used **only** to obtain an
+authenticated PAW session. Once the session is established, all user data comes exclusively
+from PAW Content Services and the TM1 REST API:
+
+| Data | Source |
+|---|---|
+| User display names | PAW `system_properties.created_user_pretty_name` etc. |
+| Book ownership | PAW asset `system_properties` |
+| Last opened by / date | PAW `used_user_pretty_name` / `used_date` |
+| Folder permissions | PAW Content Services API |
+| Active sessions / clients | TM1 REST API |
+| Historical snapshots | DuckDB (written by Health Monitor) |
+
+Never call the Authentik API to resolve user identity, group membership, or display names.
+If the SSO provider changes, only `core/paw_connect.py` should need to change.
 
 ---
 
@@ -203,9 +222,8 @@ Live group membership and folder permissions are resolved at runtime via:
 ## Running the App
 
 ```bash
-cd ~/tm1-governance
-source venv/bin/activate
-python3 app.py
+cd ~/apps/tm1_governance
+./run.sh
 ```
 
 Then open:
@@ -238,7 +256,7 @@ Then open:
 ## TODO
 
 - [ ] Complete CST Model Builder scripts
-- [ ] Build `core/groups.py` live Authentik + PAW group resolver
+- [ ] Build `core/groups.py` live PAW + TM1 group resolver (no Authentik dependency)
 - [ ] Build Health Monitor backend (Flask + DuckDB + APScheduler)
 - [ ] Move `core/groups.json` to annotations only (strip any live data)
 - [ ] Connect `paw_tree/paw_governance_explorer.jsx` into Flask

@@ -215,6 +215,18 @@ body { display: flex; flex-direction: column; }
       <option value="">All views</option>
     </select>
   </div>
+  <div id="dim-filter-wrap" class="cube-view-wrap">
+    <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M5.5 1L10 3.5v4L5.5 10 1 7.5v-4L5.5 1z" stroke="var(--muted)" stroke-width="1.1" fill="none"/><line x1="5.5" y1="1" x2="5.5" y2="10" stroke="var(--muted)" stroke-width=".7"/></svg>
+    <select id="dim-select" onchange="onDimFilter(this.value)" disabled>
+      <option value="">All dimensions</option>
+    </select>
+  </div>
+  <div id="subset-filter-wrap" class="cube-view-wrap">
+    <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><circle cx="5.5" cy="5.5" r="4" stroke="var(--muted)" stroke-width="1.1"/><circle cx="5.5" cy="5.5" r="1.8" stroke="var(--muted)" stroke-width=".9"/></svg>
+    <select id="subset-select" onchange="onSubsetFilter(this.value)" disabled>
+      <option value="">All subsets</option>
+    </select>
+  </div>
   <div id="toolbar-spacer"></div>
   <div id="tree-count"></div>
 </div>
@@ -254,8 +266,12 @@ applyTheme();
 let TREE         = [];
 let GROUPS       = [];
 let activeGroup  = '';
-let activeCube   = '';
-let activeView   = '';
+let activeCube      = '';
+let activeView      = '';
+let activeDimension = '';
+let activeSubset    = '';
+let subsetViews     = [];
+let subsetCount     = null;
 let selectedId   = null;
 let selectedNode = null;
 let openTabId    = null;
@@ -359,7 +375,8 @@ function buildNodeHTML(node, depth) {
     ? '<svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M3 2l3 2.5L3 7" stroke="#8b949e" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg>'
     : '';
   const chevCls = 'chevron' + (isOpen ? ' open' : '');
-  const icon    = node.type === 'folder' ? folderSVG(isOpen) : bookSVG(statusColor(node.status||'Published'));
+  const bookColor = node.private ? 'var(--amber)' : statusColor(node.status||'Published');
+  const icon    = node.type === 'folder' ? folderSVG(isOpen) : bookSVG(bookColor);
   const lCls    = 'node-label ' + (node.type === 'folder' ? 'folder' : 'book');
   const rCls    = 'tree-row' + (isSel ? ' active' : '');
 
@@ -367,6 +384,7 @@ function buildNodeHTML(node, depth) {
   if (node.type === 'folder') {
     if (bkCount > 0) meta += '<span class="book-count">' + bkCount + ' book' + (bkCount!==1?'s':'') + '</span>';
   } else {
+    if (node.private && node.owner) meta += '<span class="meta-chip" style="color:var(--amber);border:1px solid var(--amber);border-radius:4px;padding:1px 5px">🔒 ' + node.owner + '</span>';
     if (tabs.length)  meta += '<span class="meta-chip">' + tabs.length + ' page' + (tabs.length!==1?'s':'') + '</span>';
     if (cubes.length) meta += '<span class="meta-chip">Cubes: <b>' + cubes.join(', ') + '</b></span>';
     if (node.modifiedBy) meta += '<span class="meta-chip">Modified <b>' + relTime(node.modifiedDate) + '</b> by <b>' + node.modifiedBy + '</b></span>';
@@ -525,8 +543,11 @@ function showBookDetail(node) {
   const tcol = node.assetType === 'workbench' ? 'var(--purple)' : 'var(--blue)';
 
   // ── Section 1: Book metadata (always shown) ────────────────────────────────
+  const visLabel = node.private ? '<span style="color:var(--amber)">🔒 Private</span>' : '<span style="color:var(--teal)">Shared</span>';
   let html = '<div class="detail-grid">'
     + '<div><div class="detail-label">Type</div><div class="detail-val" style="color:' + tcol + '">' + tc + '</div></div>'
+    + '<div><div class="detail-label">Visibility</div><div class="detail-val">' + visLabel + '</div></div>'
+    + (node.private && node.owner ? '<div><div class="detail-label">Owner</div><div class="detail-val" style="color:var(--amber)">' + node.owner + '</div></div>' : '')
     + '<div><div class="detail-label">Path</div><div class="detail-val mono">' + (node.path||'—') + '</div></div>'
     + '<div><div class="detail-label">Created by</div><div class="detail-val">' + (node.createdBy||'—') + '</div></div>'
     + '<div><div class="detail-label">Created</div><div class="detail-val">' + fmtDate(node.createdDate) + '</div></div>'
@@ -537,6 +558,17 @@ function showBookDetail(node) {
     + '<div><div class="detail-label">State</div><div class="detail-val">' + (node.state||'—') + '</div></div>'
     + '<div><div class="detail-label">Permissions</div><div class="detail-val" style="color:var(--teal)">' + ((node.permissions||[]).join(', ')||'—') + '</div></div>'
     + '</div>';
+
+  // ── Section 1b: Subset info (when dimension + subset selected) ────────────
+  if (activeDimension && activeSubset) {
+    html += '<div class="section-lbl">SUBSET</div>'
+      + '<div style="display:flex;gap:20px;padding:6px 0 10px;border-bottom:1px solid var(--border);margin-bottom:4px">'
+      + '<div><div class="detail-label">Dimension</div><div class="detail-val mono">' + activeDimension + '</div></div>'
+      + '<div><div class="detail-label">Subset</div><div class="detail-val mono">' + activeSubset + '</div></div>'
+      + '<div><div class="detail-label">Members</div><div class="detail-val" style="color:var(--teal)">'
+      + (subsetCount !== null ? subsetCount : '—') + '</div></div>'
+      + '</div>';
+  }
 
   if (activeCube && activeView) {
     // ── Section 2: Tabs using this view ───────────────────────────────────────
@@ -683,15 +715,17 @@ function filterByGroup(nodes, groupId) {
   return filterNodes(nodes);
 }
 
-// CUBE / VIEW FILTER
-function filterByCubeView(nodes, cube, view) {
-  if (!cube) return nodes;
-  function bookMatches(book) {
-    return (book.tabs||[]).some(function(t) {
-      if (t.cube !== cube) return false;
-      return !view || t.view === view;
-    });
+// CUBE / VIEW / DIMENSION / SUBSET FILTER
+function getFilteredTree() {
+  var t = filterByGroup(TREE, activeGroup);
+  if (!activeCube) return t;
+  function tabMatches(tab) {
+    if (tab.cube !== activeCube) return false;
+    if (activeView && tab.view !== activeView) return false;
+    if (activeSubset && subsetViews.length > 0 && !subsetViews.includes(tab.view)) return false;
+    return true;
   }
+  function bookMatches(book) { return (book.tabs||[]).some(tabMatches); }
   function filterNodes(ns) {
     return ns.reduce(function(acc, n) {
       if (n.type === 'book') {
@@ -703,11 +737,18 @@ function filterByCubeView(nodes, cube, view) {
       return acc;
     }, []);
   }
-  return filterNodes(nodes);
+  return filterNodes(t);
 }
-function getFilteredTree() {
-  var t = filterByGroup(TREE, activeGroup);
-  return filterByCubeView(t, activeCube, activeView);
+
+function resetDimSubset() {
+  activeDimension = ''; activeSubset = ''; subsetViews = []; subsetCount = null;
+  var dimSel    = document.getElementById('dim-select');
+  var subsetSel = document.getElementById('subset-select');
+  dimSel.innerHTML    = '<option value="">All dimensions</option>';
+  subsetSel.innerHTML = '<option value="">All subsets</option>';
+  dimSel.disabled = true; subsetSel.disabled = true;
+  document.getElementById('dim-filter-wrap').classList.remove('active');
+  document.getElementById('subset-filter-wrap').classList.remove('active');
 }
 
 async function loadCubes() {
@@ -722,9 +763,10 @@ async function loadCubes() {
     });
   } catch(e) { console.warn('Cubes load failed:', e); }
 }
+
 async function onCubeFilter(cube) {
-  activeCube = cube;
-  activeView = '';
+  activeCube = cube; activeView = '';
+  resetDimSubset();
   var viewSel = document.getElementById('view-select');
   viewSel.innerHTML = '<option value="">All views</option>';
   viewSel.disabled  = true;
@@ -734,18 +776,64 @@ async function onCubeFilter(cube) {
   if (selectedNode && selectedNode.type === 'book') showBookDetail(selectedNode);
   if (!cube) return;
   try {
-    var res  = await fetch('/api/tm1/views?cube=' + encodeURIComponent(cube));
-    var data = await res.json();
-    (data.views||[]).forEach(function(v) {
-      var opt = document.createElement('option');
-      opt.value = v; opt.textContent = v; viewSel.appendChild(opt);
+    var res1 = fetch('/api/tm1/views?cube='      + encodeURIComponent(cube));
+    var res2 = fetch('/api/tm1/dimensions?cube=' + encodeURIComponent(cube));
+    var viewsData = await (await res1).json();
+    var dimsData  = await (await res2).json();
+    var dimSel = document.getElementById('dim-select');
+    (viewsData.views||[]).forEach(function(v) {
+      var opt = document.createElement('option'); opt.value = v; opt.textContent = v; viewSel.appendChild(opt);
     });
-    viewSel.disabled = false;
-  } catch(e) { console.warn('Views load failed:', e); }
+    (dimsData.dimensions||[]).forEach(function(d) {
+      var opt = document.createElement('option'); opt.value = d; opt.textContent = d; dimSel.appendChild(opt);
+    });
+    viewSel.disabled = false; dimSel.disabled = false;
+  } catch(e) { console.warn('Cube dependents load failed:', e); }
 }
+
 async function onViewFilter(view) {
   activeView = view;
   document.getElementById('view-filter-wrap').classList.toggle('active', !!view);
+  renderTree(getFilteredTree());
+  if (selectedNode && selectedNode.type === 'book') showBookDetail(selectedNode);
+}
+
+async function onDimFilter(dim) {
+  activeDimension = dim; activeSubset = ''; subsetViews = []; subsetCount = null;
+  var subsetSel = document.getElementById('subset-select');
+  subsetSel.innerHTML = '<option value="">All subsets</option>';
+  subsetSel.disabled  = true;
+  document.getElementById('dim-filter-wrap').classList.toggle('active', !!dim);
+  document.getElementById('subset-filter-wrap').classList.remove('active');
+  renderTree(getFilteredTree());
+  if (selectedNode && selectedNode.type === 'book') showBookDetail(selectedNode);
+  if (!dim) return;
+  try {
+    var res  = await fetch('/api/tm1/subsets?cube=' + encodeURIComponent(activeCube) + '&dimension=' + encodeURIComponent(dim));
+    var data = await res.json();
+    (data.subsets||[]).forEach(function(s) {
+      var opt = document.createElement('option'); opt.value = s; opt.textContent = s; subsetSel.appendChild(opt);
+    });
+    subsetSel.disabled = false;
+  } catch(e) { console.warn('Subsets load failed:', e); }
+}
+
+async function onSubsetFilter(subset) {
+  activeSubset = subset; subsetViews = []; subsetCount = null;
+  document.getElementById('subset-filter-wrap').classList.toggle('active', !!subset);
+  if (subset && activeCube && activeDimension) {
+    try {
+      var p1 = fetch('/api/tm1/views_with_subset?cube=' + encodeURIComponent(activeCube)
+                   + '&dimension=' + encodeURIComponent(activeDimension)
+                   + '&subset='    + encodeURIComponent(subset));
+      var p2 = fetch('/api/tm1/subset_info?dimension=' + encodeURIComponent(activeDimension)
+                   + '&subset='    + encodeURIComponent(subset));
+      var vd = await (await p1).json();
+      var sd = await (await p2).json();
+      subsetViews = vd.views || [];
+      subsetCount = sd.count !== undefined ? sd.count : null;
+    } catch(e) { console.warn('Subset info load failed:', e); }
+  }
   renderTree(getFilteredTree());
   if (selectedNode && selectedNode.type === 'book') showBookDetail(selectedNode);
 }
@@ -767,8 +855,15 @@ function showError(msg) {
 }
 function normalise(nodes) {
   return nodes.map(function(n) {
+    var owner = n.owner || '';
+    // For private folder nodes the PAW folder name is often a UUID — use the
+    // owner display name as the visible label instead when available.
+    var displayName = (n.type === 'folder' && n.private && owner) ? owner : n.name;
     return Object.assign({}, n, {
+      name:     displayName,
       status:   n.state === 'valid' ? 'Published' : 'Draft',
+      private:  n.private || false,
+      owner:    owner,
       tabs:     (n.tabs||[]).map(function(t, i) {
         return { id: 'tab-' + n.id + '-' + i, name: t.name,
           type: t.cube ? 'Cube View' : 'View',

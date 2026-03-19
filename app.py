@@ -170,6 +170,111 @@ def api_tm1_views():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/tm1/dimensions')
+def api_tm1_dimensions():
+    """Return all non-system dimension names for a cube."""
+    cube = request.args.get('cube', '').strip()
+    if not cube:
+        return jsonify({'error': 'cube parameter required'}), 400
+    try:
+        from core.tm1_connect import get_session
+        session = get_session()
+        r = session.get(f"{session.base_url}/Cubes('{cube}')/Dimensions?$select=Name")
+        r.raise_for_status()
+        dims = sorted(
+            d['Name'] for d in r.json().get('value', [])
+            if not d['Name'].startswith('}')
+        )
+        return jsonify({'dimensions': dims})
+    except Exception as e:
+        log.error(f'TM1 dimensions error: {e}')
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/tm1/subsets')
+def api_tm1_subsets():
+    """Return all non-system subset names for a dimension."""
+    cube      = request.args.get('cube', '').strip()
+    dimension = request.args.get('dimension', '').strip()
+    if not cube or not dimension:
+        return jsonify({'error': 'cube and dimension parameters required'}), 400
+    try:
+        from core.tm1_connect import get_session
+        session = get_session()
+        r = session.get(
+            f"{session.base_url}/Dimensions('{dimension}')/Hierarchies('{dimension}')/Subsets?$select=Name"
+        )
+        r.raise_for_status()
+        subsets = sorted(
+            s['Name'] for s in r.json().get('value', [])
+            if not s['Name'].startswith('}')
+        )
+        return jsonify({'subsets': subsets})
+    except Exception as e:
+        log.error(f'TM1 subsets error: {e}')
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/tm1/subset_info')
+def api_tm1_subset_info():
+    """Return member count for a subset."""
+    dimension = request.args.get('dimension', '').strip()
+    subset    = request.args.get('subset', '').strip()
+    if not dimension or not subset:
+        return jsonify({'error': 'dimension and subset parameters required'}), 400
+    try:
+        from core.tm1_connect import get_session
+        session = get_session()
+        r = session.get(
+            f"{session.base_url}/Dimensions('{dimension}')/Hierarchies('{dimension}')"
+            f"/Subsets('{subset}')/Elements?$count=true&$top=0"
+        )
+        r.raise_for_status()
+        return jsonify({'count': r.json().get('@odata.count', 0)})
+    except Exception as e:
+        log.error(f'TM1 subset_info error: {e}')
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/tm1/views_with_subset')
+def api_tm1_views_with_subset():
+    """Return view names that use a specific subset for a given dimension on a cube."""
+    cube      = request.args.get('cube', '').strip()
+    dimension = request.args.get('dimension', '').strip()
+    subset    = request.args.get('subset', '').strip()
+    if not cube or not dimension or not subset:
+        return jsonify({'error': 'cube, dimension and subset parameters required'}), 400
+    try:
+        from core.tm1_connect import get_session
+        session = get_session()
+        r = session.get(
+            f"{session.base_url}/Cubes('{cube}')/Views?$expand=Rows,Columns,Titles"
+        )
+        r.raise_for_status()
+        dim_lc    = dimension.lower()
+        subset_lc = subset.lower()
+        matching  = []
+        for view in r.json().get('value', []):
+            name = view.get('Name', '')
+            if name.startswith('}'):
+                continue
+            found = False
+            for axis in ('Rows', 'Columns', 'Titles'):
+                for entry in (view.get(axis) or []):
+                    if (entry.get('DimensionName', '').lower() == dim_lc and
+                            entry.get('SubsetName', '').lower() == subset_lc):
+                        found = True
+                        break
+                if found:
+                    break
+            if found:
+                matching.append(name)
+        return jsonify({'views': matching})
+    except Exception as e:
+        log.error(f'TM1 views_with_subset error: {e}')
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/tm1/mdx')
 def api_tm1_mdx():
     """Return the MDX query for a named view (MDX views only)."""
@@ -244,7 +349,7 @@ def api_paw_tree():
                             'type':'View','server':'','cube':'','view':''})
             return tabs
 
-        def build_node(asset, with_content=False):
+        def build_node(asset, with_content=False, private=False, owner=''):
             sp = asset.get('system_properties',{})
             node = {
                 'id':asset['id'],'name':asset['name'],'path':asset['path'],
@@ -259,32 +364,67 @@ def api_paw_tree():
                 'permissions':sp.get('permissions',[]),
                 'version':asset.get('custom_properties',{}).get('version',''),
                 'description':asset.get('description',''),
+                'private':private,
+                'owner':owner,
             }
             if with_content:
                 full = get_asset_by_id(session, asset['id'], expand_content=True)
                 node['tabs'] = extract_tabs(full.get('content',{}))
             return node
 
-        def walk_folder(path):
+        def walk_folder(path, private=False, owner=''):
             encoded = encode_path(path)
-            r = session.get(f"{paw}/pacontent/v1/Assets(path='{encoded}')/Assets", headers=headers)
-            r.raise_for_status()
+            try:
+                r = session.get(f"{paw}/pacontent/v1/Assets(path='{encoded}')/Assets", headers=headers)
+                r.raise_for_status()
+            except Exception as exc:
+                log.warning(f'walk_folder {path!r} failed: {exc}')
+                return []
             children = []
-            for asset in r.json().get('value',[]):
+            for asset in r.json().get('value', []):
                 if asset['type'] == 'folder':
-                    node = build_node(asset)
-                    node['children'] = walk_folder(asset['path'])
+                    node = build_node(asset, private=private, owner=owner)
+                    node['children'] = walk_folder(asset['path'], private=private, owner=owner)
                     children.append(node)
                 else:
-                    node = build_node(asset, with_content=True)
+                    node = build_node(asset, with_content=True, private=private, owner=owner)
                     node['children'] = []
                     children.append(node)
             return children
 
         tree = [{'id':'f-shared','type':'folder','name':'Shared Content','path':'/shared',
-                 'system':True,'createdBy':'','modifiedDate':'',
+                 'system':True,'createdBy':'','modifiedDate':'','private':False,'owner':'',
                  'description':'Team content shared across all users.',
                  'children':walk_folder('/shared')}]
+
+        # Walk /users to discover private user folders
+        try:
+            encoded_users = encode_path('/users')
+            r = session.get(f"{paw}/pacontent/v1/Assets(path='{encoded_users}')/Assets", headers=headers)
+            r.raise_for_status()
+            private_children = []
+            for user_asset in r.json().get('value', []):
+                if user_asset['type'] != 'folder':
+                    continue
+                sp_u = user_asset.get('system_properties', {})
+                username = (sp_u.get('created_user_pretty_name', '') or
+                            user_asset.get('name', user_asset['path'].split('/')[-1]))
+                log.info(f'Walking private folder for user: {username}')
+                children = walk_folder(user_asset['path'], private=True, owner=username)
+                if children:
+                    user_node = build_node(user_asset, private=True, owner=username)
+                    user_node['children'] = children
+                    private_children.append(user_node)
+            if private_children:
+                tree.append({
+                    'id':'f-private','type':'folder','name':'Private Content','path':'/users',
+                    'system':True,'createdBy':'','modifiedDate':'','private':False,'owner':'',
+                    'description':'Private books belonging to individual users.',
+                    'children':private_children,
+                })
+                log.info(f'Private folders: {len(private_children)} user(s) with content')
+        except Exception as e:
+            log.warning(f'Private folders walk skipped: {e}')
 
         log.info(f"PAW tree built successfully")
         return jsonify({'status':'ok','tree':tree})
