@@ -11,7 +11,7 @@ The suite has four distinct tools:
 |---|---|---|
 | **Model Builder** | WIP | `model_builder/` |
 | **CubeMap** (cube lineage diagram) | Working | `cube_map/` |
-| **PAW Tree** (workbook explorer) | Working | `paw_tree/` |
+| **PAW Tree** (workbook explorer + governance dashboard) | Working | `paw_tree/` |
 | **Health Monitor** (ops dashboard) | In progress | `health_monitor/` |
 
 All tools share a single Flask server (`app.py`) and common connection helpers in `core/`.
@@ -98,10 +98,10 @@ tm1-governance/
 │   └── static/
 │       └── tm1_cube_lineage.html  # Self-contained Cytoscape diagram
 │
-├── paw_tree/                      # Tool 3: PAW workbook tree explorer
+├── paw_tree/                      # Tool 3: PAW workbook tree explorer + governance dashboard
 │   ├── paw_governance_explorer.jsx  # React prototype — not yet integrated
 │   └── static/
-│       └── tm1_paw_tree.html
+│       └── tm1_paw_tree.html      # Two-tab UI: Tree view + Governance Dashboard
 │
 ├── health_monitor/                # Tool 4: Ops health dashboard
 │   ├── backend.py                 # Flask routes, APScheduler, DuckDB (TODO)
@@ -125,6 +125,52 @@ tm1-governance/
 
 ---
 
+## PAW Tree — Feature Reference
+
+The PAW Tree (`/workbook-tree`) is a two-tab governance tool for PAW workbooks.
+
+### Tree Tab
+
+Displays the full PAW folder hierarchy with live filtering:
+
+| Filter | Behaviour |
+|---|---|
+| Search | Full-text search across book names, paths, cube names |
+| Group | Filter to folders/books visible to a specific security group |
+| Cube | Filter tree to books containing a tab on this cube |
+| View | Narrow further to books using a specific view |
+| Dimension | Narrow further to books using a specific dimension |
+| Subset | Narrow to books where a specific subset is used; shows member count in drawer |
+
+Clicking any book opens a **detail drawer** (bottom slide-up panel) with:
+- **Section 1** — book metadata: type, visibility (Shared/🔒 Private), owner, path, created/modified/opened dates and users, state, permissions
+- **Section 2** (when cube+view selected) — tabs using this view
+- **Section 3** (when cube+view selected) — view definition: type badge (MDXView/NativeView), MDX query with Copy button
+
+**Private books** (from `/users/*` in PAW Content Services) are shown with an amber 🔒 icon and owner chip. Owner display names come from `system_properties.created_user_pretty_name` on the PAW user folder asset — not from the identity provider.
+
+### Governance Dashboard Tab
+
+Calculated entirely from the loaded tree data — no additional API calls. Shows:
+
+| Section | Contents |
+|---|---|
+| **Stat cards** | Total books · Stale 90+ days · Private books · Orphaned books |
+| **Stale books** | Books not opened in 60+ days, sorted most-stale first; "Never opened" badge for untouched books |
+| **Orphaned books** | Shared books whose `createdBy` is not a current PAW user (not found in `/users` folder list) |
+| **Recently modified** | Books modified in the last 7 days, sorted newest first |
+
+### PAW Content Services — Private Folder Discovery
+
+Private user content lives under `/users` in PAW (not `/user`). The backend (`api_paw_tree`):
+1. Walks `/users` to get all user folder assets
+2. Resolves display name from `system_properties.created_user_pretty_name` on the folder asset
+3. Walks each user's folder tree, flagging all books with `private=True, owner=<display_name>`
+4. Wraps results in a "Private Content" root node in the tree
+5. Users with no private content are not included (empty folder → no node)
+
+---
+
 ## Flask Routes (app.py)
 
 | Method | Path | Description |
@@ -136,7 +182,14 @@ tm1-governance/
 | POST | `/api/refresh` | Re-extract model from TM1, update cache |
 | GET | `/api/status` | Server + last-refresh info |
 | GET | `/api/groups` | Return resolved groups (reads `core/groups.json`) |
-| GET | `/api/paw/tree` | Walk PAW folder tree, return JSON |
+| GET | `/api/paw/tree` | Walk PAW folder tree (shared + private), return JSON |
+| GET | `/api/tm1/cubes` | All non-system cube names |
+| GET | `/api/tm1/views?cube=` | All non-system view names for a cube |
+| GET | `/api/tm1/dimensions?cube=` | All non-system dimension names for a cube |
+| GET | `/api/tm1/subsets?cube=&dimension=` | All non-system subset names for a dimension |
+| GET | `/api/tm1/subset_info?dimension=&subset=` | Member count for a subset |
+| GET | `/api/tm1/views_with_subset?cube=&dimension=&subset=` | Views that use a specific subset |
+| GET | `/api/tm1/mdx?cube=&view=` | MDX query for a view (MDXView only) |
 
 ---
 
@@ -238,7 +291,8 @@ Then open:
 - Model Builder CST scripts not yet complete
 - Health Monitor backend (`health_monitor/backend.py`) not yet built — HTML renders with sample data
 - `core/groups.py` live resolver not yet built — `api/groups` currently reads static `core/groups.json`
-- `paw_tree/paw_governance_explorer.jsx` is a React prototype — not integrated into Flask yet
+- `paw_tree/paw_governance_explorer.jsx` is a React prototype — superseded by `tm1_paw_tree.html`, can be removed
+- Orphaned book detection uses PAW private folder owners as the "current user list" — users with no private content won't appear, so some shared books may be incorrectly flagged; a `/api/paw/users` endpoint returning all PAW users regardless of private content would fix this
 
 ---
 
@@ -259,7 +313,8 @@ Then open:
 - [ ] Build `core/groups.py` live PAW + TM1 group resolver (no Authentik dependency)
 - [ ] Build Health Monitor backend (Flask + DuckDB + APScheduler)
 - [ ] Move `core/groups.json` to annotations only (strip any live data)
-- [ ] Connect `paw_tree/paw_governance_explorer.jsx` into Flask
+- [ ] Remove `paw_tree/paw_governance_explorer.jsx` (superseded by tm1_paw_tree.html)
+- [ ] Add `/api/paw/users` endpoint returning all PAW users (not just those with private content) to improve orphaned book detection
 - [ ] Add GitHub remote backup
 - [ ] Set up gunicorn for production
 - [ ] Add second monitor to dev setup
