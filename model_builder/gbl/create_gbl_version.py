@@ -11,7 +11,7 @@ Attributes: Is Snapshot, Start Period, End Period, Number of Rolling Months
 
 import sys
 sys.path.insert(0, '/home/jdlove/tm1-governance')
-from tm1py_connect import get_tm1_service
+from core.tm1py_connect import get_tm1_service
 from TM1py.Objects import Dimension, Hierarchy, ElementAttribute
 
 tm1 = get_tm1_service()

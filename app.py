@@ -30,9 +30,8 @@ from flask import Flask, jsonify, send_from_directory, abort, request
 
 # ── Path setup ────────────────────────────────────────────────────────────────
 BASE_DIR   = Path(__file__).parent
-MODEL_FILE = BASE_DIR / 'tm1_model.json'
+MODEL_FILE = BASE_DIR / 'cube_map' / 'tm1_model.json'
 
-# Import extraction logic — assumes extract_tm1_model.py is in the same folder
 sys.path.insert(0, str(BASE_DIR))
 
 # ── Logging ───────────────────────────────────────────────────────────────────
@@ -61,25 +60,34 @@ _refresh_status = {
 @app.route('/')
 def index():
     """Serve the CubeMap HTML diagram."""
-    html_file = BASE_DIR / 'tm1_cube_lineage.html'
-    if not html_file.exists():
-        abort(404, 'tm1_cube_lineage.html not found — make sure it is in the same folder as app.py')
-    return send_from_directory(str(BASE_DIR), 'tm1_cube_lineage.html')
+    static_dir = BASE_DIR / 'cube_map' / 'static'
+    if not (static_dir / 'tm1_cube_lineage.html').exists():
+        abort(404, 'cube_map/static/tm1_cube_lineage.html not found')
+    return send_from_directory(str(static_dir), 'tm1_cube_lineage.html')
 
 
 @app.route('/workbook-tree')
 def workbook_tree():
     """Serve the PAW Workbook Tree governance explorer."""
-    html_file = BASE_DIR / 'workbook_tree.html'
-    if not html_file.exists():
-        abort(404, 'workbook_tree.html not found — make sure it is in the same folder as app.py')
-    return send_from_directory(str(BASE_DIR), 'workbook_tree.html')
+    static_dir = BASE_DIR / 'paw_tree' / 'static'
+    if not (static_dir / 'tm1_paw_tree.html').exists():
+        abort(404, 'paw_tree/static/tm1_paw_tree.html not found')
+    return send_from_directory(str(static_dir), 'tm1_paw_tree.html')
+
+
+@app.route('/health-monitor')
+def health_monitor():
+    """Serve the Health Monitor dashboard."""
+    static_dir = BASE_DIR / 'health_monitor' / 'static'
+    if not (static_dir / 'tm1_health_monitor.html').exists():
+        abort(404, 'health_monitor/static/tm1_health_monitor.html not found')
+    return send_from_directory(str(static_dir), 'tm1_health_monitor.html')
 
 
 @app.route('/api/groups')
 def api_groups():
     """Serve the groups.json security configuration."""
-    groups_file = BASE_DIR / 'groups.json'
+    groups_file = BASE_DIR / 'core' / 'groups.json'
     if not groups_file.exists():
         return jsonify({'groups': []})
     with open(groups_file, encoding='utf-8') as f:
@@ -89,7 +97,7 @@ def api_groups():
 @app.route('/api/paw/tree')
 def api_paw_tree():
     try:
-        from paw_connect import get_paw_session, get_asset_by_id, PAW_CONFIG
+        from core.paw_connect import get_paw_session, get_asset_by_id, PAW_CONFIG
         from urllib.parse import quote
         import json as _json
 

@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 # ── Path setup ───────────────────────────────────────────────────────────────
 # Adjust this if tm1py_connect.py is in a different location
 sys.path.insert(0, '/home/jdlove/tm1-governance')
-from tm1py_connect import get_tm1_service, TM1_CONFIG
+from core.tm1py_connect import get_tm1_service, TM1_CONFIG
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

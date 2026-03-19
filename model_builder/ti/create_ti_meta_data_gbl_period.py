@@ -48,7 +48,7 @@ import os
 import json
 import time
 sys.path.insert(0, '/home/jdlove/tm1-governance')
-from tm1_connect import get_session
+from core.tm1_connect import get_session
 
 session  = get_session()
 base     = session.base_url

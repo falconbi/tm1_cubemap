@@ -17,9 +17,11 @@ Behaviour:
 """
 
 import os
+import sys
 import json
 import argparse
-from tm1_connect import get_session
+sys.path.insert(0, '/home/jdlove/tm1-governance')
+from core.tm1_connect import get_session
 
 # ---------------------------------------------------------------------------
 # Connect

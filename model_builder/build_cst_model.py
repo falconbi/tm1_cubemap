@@ -15,12 +15,15 @@ Execution order:
 import sys
 import runpy
 import time
+from pathlib import Path
+
+sys.path.insert(0, '/home/jdlove/tm1-governance')
+BASE = Path(__file__).parent
 
 
 # ── Preflight — verify GBL dependencies exist ─────────────────────────────────
 def check_gbl_dependencies():
-    sys.path.insert(0, '/home/jdlove/tm1-governance')
-    from tm1py_connect import get_tm1_service
+    from core.tm1py_connect import get_tm1_service
 
     print("Checking GBL dependencies...")
     tm1 = get_tm1_service()
@@ -69,10 +72,10 @@ check_gbl_dependencies()
 
 # ── Build scripts ──────────────────────────────────────────────────────────────
 SCRIPTS = [
-    ('create_cst_dimensions',        'All CST dimensions (GBL Department, CST + Measure dims)'),
-    ('create_cst_cubes',             'All 8 CST cubes'),
-    ('create_cst_allocation_config', 'CST Allocation Config cube — version-aware settings'),
-    ('create_cst_subsets_and_views', 'Default subsets and RPT Default views'),
+    ('cst/create_cst_dimensions',        'All CST dimensions (GBL Department, CST + Measure dims)'),
+    ('cst/create_cst_cubes',             'All 8 CST cubes'),
+    ('cst/create_cst_allocation_config', 'CST Allocation Config cube — version-aware settings'),
+    ('cst/create_cst_subsets_and_views', 'Default subsets and RPT Default views'),
 ]
 
 print("=" * 60)
@@ -84,7 +87,7 @@ for script, description in SCRIPTS:
     print(f"STEP: {description}")
     print(f"{'=' * 60}")
     try:
-        runpy.run_path(f"{script}.py", run_name="__main__")
+        runpy.run_path(str(BASE / f'{script}.py'), run_name="__main__")
     except SystemExit:
         pass
     except Exception as e:

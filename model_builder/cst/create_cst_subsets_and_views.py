@@ -21,7 +21,7 @@ MDX views are used instead of native views because:
 
 import sys
 sys.path.insert(0, '/home/jdlove/tm1-governance')
-from tm1py_connect import get_tm1_service
+from core.tm1py_connect import get_tm1_service
 from TM1py.Objects import Subset, MDXView
 
 tm1 = get_tm1_service()

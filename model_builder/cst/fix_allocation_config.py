@@ -4,7 +4,7 @@ Deletes CST Allocation Config objects and rebuilds them cleanly.
 """
 import sys
 sys.path.insert(0, '/home/jdlove/tm1-governance')
-from tm1py_connect import get_tm1_service
+from core.tm1py_connect import get_tm1_service
 import runpy
 
 tm1 = get_tm1_service()

@@ -18,12 +18,15 @@ Execution order:
 import sys
 import runpy
 import time
+from pathlib import Path
+
+sys.path.insert(0, '/home/jdlove/tm1-governance')
+BASE = Path(__file__).parent
 
 
 # ── Preflight — verify GBL Period exists ──────────────────────────────────────
 def check_period_dependency():
-    sys.path.insert(0, '/home/jdlove/tm1-governance')
-    from tm1py_connect import get_tm1_service
+    from core.tm1py_connect import get_tm1_service
 
     print("Checking GBL Period dependency...")
     tm1 = get_tm1_service()
@@ -46,14 +49,14 @@ check_period_dependency()
 
 # ── Build scripts ──────────────────────────────────────────────────────────────
 SCRIPTS = [
-    ('create_gbl_account',                   'GBL Account dimension + Code & Desc aliases'),
-    ('create_gbl_department',                'GBL Department dimension + Code & Desc aliases'),
-    ('create_gbl_currency_from',             'GBL Currency From dimension'),
-    ('create_gbl_currency_to',               'GBL Currency To dimension'),
-    ('create_gbl_version',                   'GBL Version dimension + operational attributes'),
-    ('create_gbl_assumptions',               'GBL Assumptions cube + measure dimension'),
-    ('create_json_ti_meta_data_gbl_version', 'Generate META DATA GBL Version TI JSON'),
-    ('create_ti_meta_data_gbl_version',      'Deploy META DATA GBL Version TI to TM1'),
+    ('gbl/create_gbl_account',                   'GBL Account dimension + Code & Desc aliases'),
+    ('gbl/create_gbl_department',                'GBL Department dimension + Code & Desc aliases'),
+    ('gbl/create_gbl_currency_from',             'GBL Currency From dimension'),
+    ('gbl/create_gbl_currency_to',               'GBL Currency To dimension'),
+    ('gbl/create_gbl_version',                   'GBL Version dimension + operational attributes'),
+    ('gbl/create_gbl_assumptions',               'GBL Assumptions cube + measure dimension'),
+    ('ti/create_json_ti_meta_data_gbl_version',  'Generate META DATA GBL Version TI JSON'),
+    ('ti/create_ti_meta_data_gbl_version',       'Deploy META DATA GBL Version TI to TM1'),
 ]
 
 print("=" * 60)
@@ -65,7 +68,7 @@ for script, description in SCRIPTS:
     print(f"STEP: {description}")
     print(f"{'=' * 60}")
     try:
-        runpy.run_path(f"{script}.py", run_name="__main__")
+        runpy.run_path(str(BASE / f'{script}.py'), run_name="__main__")
     except SystemExit:
         pass
     except Exception as e:

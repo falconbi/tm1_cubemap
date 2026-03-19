@@ -18,9 +18,11 @@ import argparse
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+sys.path.insert(0, '/home/jdlove/tm1-governance')
+
 # ── Imports ───────────────────────────────────────────────────────────────
 try:
-    from tm1_connect import get_session
+    from core.tm1_connect import get_session
 except ImportError:
     print("Error: Could not import get_session from tm1_connect.py.")
     sys.exit(1)
