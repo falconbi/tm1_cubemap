@@ -104,19 +104,31 @@ def analyse_rules(rules_text: str) -> dict:
 
 
 def find_db_references(cube_name: str, rules_text: str) -> list[dict]:
-    """Find all DB() calls in rules that reference other cubes."""
+    """Find all DB() calls in rules, classified as rule_calc or rule_feeder.
+
+    Splits rules text at the FEEDERS; keyword — DB() calls before it are
+    real data flow (rule_calc), DB() calls after are performance hints only
+    (rule_feeder) and should not be treated as true lineage edges.
+    """
     if not rules_text:
         return []
-    # DB("CubeName", ...) — capture the cube name in quotes
+
+    # Split at FEEDERS; (case-insensitive) — take everything before as calc section
+    feeders_split = re.split(r'FEEDERS\s*;', rules_text, maxsplit=1, flags=re.IGNORECASE)
+    calc_section   = feeders_split[0]
+    feeder_section = feeders_split[1] if len(feeders_split) > 1 else ''
+
     pattern = r'DB\s*\(\s*["\']([^"\']+)["\']'
-    matches = re.findall(pattern, rules_text, re.IGNORECASE)
-    seen = set()
+    seen  = set()
     edges = []
-    for target in matches:
-        key = (cube_name, target)
-        if key not in seen and target.lower() != cube_name.lower():
-            seen.add(key)
-            edges.append({'source': target, 'target': cube_name, 'type': 'rules'})
+
+    for section, edge_type in [(calc_section, 'rule_calc'), (feeder_section, 'rule_feeder')]:
+        for target in re.findall(pattern, section, re.IGNORECASE):
+            key = (cube_name, target, edge_type)
+            if key not in seen and target.lower() != cube_name.lower():
+                seen.add(key)
+                edges.append({'source': target, 'target': cube_name, 'type': edge_type})
+
     return edges
 
 
@@ -139,6 +151,54 @@ def classify_dimension_kind(dim_name: str) -> str:
     if 'MEASURE' in name_upper:
         return 'measure'
     return 'cst'
+
+
+# ── RAM extraction ────────────────────────────────────────────────────────────
+
+def fetch_cube_ram(tm1, known_cubes: set) -> dict:
+    """
+    Check/enable Performance Monitor, then query }StatsByCube for per-cube RAM.
+    Returns {cube_name: ram_mb} — empty dict if unavailable or PM just enabled.
+    """
+    # Ensure Performance Monitor is running — use }StatsByCube existence as proxy
+    try:
+        all_names = tm1.cubes.get_all_names()
+        if '}StatsByCube' not in all_names:
+            print("   }StatsByCube not found — enabling Performance Monitor...")
+            tm1.server.start_performance_monitor()
+            print("   ✅ Performance Monitor enabled — re-run in ~1 min for RAM data")
+            return {}
+    except Exception as e:
+        print(f"   ⚠️  Performance Monitor check failed: {e}")
+
+    # Query }StatsByCube — Memory Used is in bytes
+    try:
+        mdx = (
+            "SELECT NON EMPTY {[}PerfCubes].Members} ON ROWS, "
+            "{[}StatsByCubeStats].[Memory Used]} ON COLUMNS "
+            "FROM [}StatsByCube] "
+            "WHERE ([}TimeIntervals].[LATEST])"
+        )
+        cells = tm1.cells.execute_mdx(
+            mdx,
+            element_unique_names=False,
+            skip_zeros=True,
+        )
+        result = {}
+        for addr, cell in cells.items():
+            cube_name = addr[0]
+            value = cell.get('Value') if isinstance(cell, dict) else cell
+            if cube_name in known_cubes and value:
+                result[cube_name] = round(value / (1024 * 1024), 1)
+
+        if result:
+            print(f"   RAM data: {len(result)} cubes  (max {max(result.values()):.1f} MB)")
+        else:
+            print("   ⚠️  }StatsByCube returned no data — wait ~1 min for first collection")
+        return result
+    except Exception as e:
+        print(f"   ⚠️  }}StatsByCube query failed: {e}")
+        return {}
 
 
 # ── Main extraction ───────────────────────────────────────────────────────────
@@ -207,13 +267,35 @@ def extract_model(prefix_filter: str = '') -> dict:
                 rule_edges = find_db_references(cube_name, rules_text)
                 all_edges.extend(rule_edges)
 
+                # Public views
+                try:
+                    views = tm1.views.get_all_names(cube_name, private=False)
+                except Exception:
+                    views = []
+
+                # Measure elements — leaf elements of the measure dimension
+                measures = []
+                measure_dim = next(
+                    (d for d in dims_raw if classify_dimension_kind(d) == 'measure'),
+                    None
+                )
+                if measure_dim:
+                    try:
+                        measures = tm1.elements.get_leaf_element_names(measure_dim, measure_dim)
+                    except Exception:
+                        measures = []
+
                 cubes_data[cube_name] = {
                     'type':       cube_type,
                     'desc':       description,
                     'descSource': desc_source,
                     'dims':       dims,
                     'rules':      rules_stats,
+                    'rulesText':  rules_text,
                     'hasRules':   has_rules,
+                    'ramMb':      None,
+                    'views':      views,
+                    'measures':   measures,
                     'from':       [],   # filled in below
                     'to':         [],   # filled in below
                 }
@@ -226,13 +308,109 @@ def extract_model(prefix_filter: str = '') -> dict:
         in_scope = set(cubes_data.keys())
         for edge in all_edges:
             src, tgt = edge['source'], edge['target']
+            etype = edge.get('type', 'rule_calc')
             if src in in_scope and tgt in in_scope:
-                if tgt not in cubes_data[src]['to']:
-                    cubes_data[src]['to'].append(tgt)
-                if src not in cubes_data[tgt]['from']:
-                    cubes_data[tgt]['from'].append(src)
+                # Store as {name, type} objects so UI knows edge type
+                if not any(e['n'] == tgt for e in cubes_data[src]['to']):
+                    cubes_data[src]['to'].append({'n': tgt, 't': etype})
+                if not any(e['n'] == src for e in cubes_data[tgt]['from']):
+                    cubes_data[tgt]['from'].append({'n': src, 't': etype})
 
-        # 3. Architecture score
+        # 3. Python ETL edges — scan registered scripts for cube read/write ops
+        try:
+            from cube_map.scan_python_edges import scan_all
+            py_sources = Path(__file__).parent / 'python_sources.json'
+            py_results = scan_all(str(py_sources), set(cubes_data.keys()))
+            for r in py_results:
+                label = r['scriptLabel']
+                cubes_data[label] = {
+                    'type':       'python',
+                    'desc':       f"Python ETL script: {Path(r['scriptPath']).name}",
+                    'descSource': 'auto',
+                    'dims':       [],
+                    'rules':      {'total': 0, 'lines': 0, 'comments': 0,
+                                   'dbRefs': 0, 'feeders': 0, 'ifs': 0, 'stet': 0, 'skip': 0},
+                    'ramMb':      None,
+                    'from':       [{'n': n, 't': 'python'} for n in sorted(r['reads'])],
+                    'to':         [{'n': n, 't': 'python'} for n in sorted(r['writes'])],
+                    'scriptPath': r['scriptPath'],
+                }
+                for cube_name in r['reads']:
+                    if cube_name in cubes_data:
+                        if not any(e['n'] == label for e in cubes_data[cube_name]['to']):
+                            cubes_data[cube_name]['to'].append({'n': label, 't': 'python'})
+                for cube_name in r['writes']:
+                    if cube_name in cubes_data:
+                        if not any(e['n'] == label for e in cubes_data[cube_name]['from']):
+                            cubes_data[cube_name]['from'].append({'n': label, 't': 'python'})
+
+            # Script-to-script trigger edges (second pass — all python nodes now exist)
+            for r in py_results:
+                label = r['scriptLabel']
+                for triggered in r.get('triggers', []):
+                    if triggered in cubes_data:
+                        if not any(e['n'] == triggered for e in cubes_data[label]['to']):
+                            cubes_data[label]['to'].append({'n': triggered, 't': 'python_trigger'})
+                        if not any(e['n'] == label for e in cubes_data[triggered]['from']):
+                            cubes_data[triggered]['from'].append({'n': label, 't': 'python_trigger'})
+
+            if py_results:
+                print(f"   Python ETL nodes: {len(py_results)}")
+        except Exception as e:
+            print(f"   ⚠️  Python edge scan failed: {e}")
+
+        # 4. TI process edges — scan all process code for cube read/write ops
+        try:
+            from cube_map.scan_ti_edges import scan_all_ti
+            from core.tm1_connect import get_session as _get_raw
+            _raw = _get_raw()
+            procs_r = _raw.get(
+                _raw.base_url +
+                "/Processes?$select=Name,PrologProcedure,MetadataProcedure,"
+                "DataProcedure,EpilogProcedure&$filter=not startswith(Name,'}')"
+            )
+            ti_processes = procs_r.json().get('value', [])
+            ti_results = scan_all_ti(ti_processes, set(cubes_data.keys()))
+            empty_rules = {'total': 0, 'lines': 0, 'comments': 0,
+                           'dbRefs': 0, 'feeders': 0, 'ifs': 0, 'stet': 0, 'skip': 0}
+            for r in ti_results:
+                label = r['processName']
+                cubes_data[label] = {
+                    'type':       'ti',
+                    'desc':       f"TI Process: {label}",
+                    'descSource': 'auto',
+                    'dims':       [],
+                    'rules':      empty_rules,
+                    'rulesText':  '',
+                    'hasRules':   False,
+                    'ramMb':      None,
+                    'views':      [],
+                    'tiCode':     r.get('code', {}),
+                    'from':       [{'n': n, 't': 'ti'} for n in sorted(r['reads'])],
+                    'to':         [{'n': n, 't': 'ti'} for n in sorted(r['writes'])],
+                }
+                for cube_name in r['reads']:
+                    if cube_name in cubes_data:
+                        if not any(e['n'] == label for e in cubes_data[cube_name]['to']):
+                            cubes_data[cube_name]['to'].append({'n': label, 't': 'ti'})
+                for cube_name in r['writes']:
+                    if cube_name in cubes_data:
+                        if not any(e['n'] == label for e in cubes_data[cube_name]['from']):
+                            cubes_data[cube_name]['from'].append({'n': label, 't': 'ti'})
+            if ti_results:
+                print(f"   TI process nodes: {len(ti_results)}")
+        except Exception as e:
+            print(f"   ⚠️  TI edge scan failed: {e}")
+
+        # 5. RAM usage from }StatsByCube
+        print("\n   Fetching RAM usage...")
+        tm1_cubes = {k for k, v in cubes_data.items() if v.get('type') != 'python'}
+        ram_data = fetch_cube_ram(tm1, tm1_cubes)
+        for cube_name, ram_mb in ram_data.items():
+            if cube_name in cubes_data:
+                cubes_data[cube_name]['ramMb'] = ram_mb
+
+        # 5. Architecture score
         score = calculate_architecture_score(cubes_data, all_edges)
 
         model = {

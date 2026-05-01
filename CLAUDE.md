@@ -1,320 +1,239 @@
 # TM1 Governance Suite — Claude Code Project Brief
 
-## What This Project Is
-
-A Python/Flask web application running on an Ubuntu 24.04 host that provides governance,
-visibility, and model-build tooling for an IBM Planning Analytics (TM1 V12) environment.
-
-The suite has four distinct tools:
-
-| Tool | Status | Entry Point |
-|---|---|---|
-| **Model Builder** | WIP | `model_builder/` |
-| **CubeMap** (cube lineage diagram) | Working | `cube_map/` |
-| **PAW Tree** (workbook explorer + governance dashboard) | Working | `paw_tree/` |
-| **Health Monitor** (ops dashboard) | In progress | `health_monitor/` |
-
-All tools share a single Flask server (`app.py`) and common connection helpers in `core/`.
+**Last updated:** April 2026
+**Status:** CubeMap ✅ | PAW Tree ✅ | Model Builder GBL ✅ | CST WIP | Health Monitor stub only
+**Note:** Report Builder is a separate app (`tm1_report_writer`) — all `/api/reports/*` routes removed from this codebase.
+**Environment:** Ubuntu 24.04 · TM1 V12 on-prem · PAW via Authentik OAuth2 PKCE
 
 ---
 
-## Infrastructure — Read This First
+## Commands
 
-### Host Machine (Ubuntu 24.04)
-- Runs this Python app, Flask server, and Authentik (SSO used only for PAW login)
-- IP: `192.168.1.171` (Authentik listens on port 9000)
-- All development happens here
+```bash
+# Daily startup
+cd ~/apps/tm1_governance && source venv/bin/activate && python3 app.py
 
-### VM1 — RHEL (bridged, fixed IP: `192.168.1.223`)
-- Runs IBM Planning Analytics Workspace (PAW)
-- PAW listens on port 80 (HTTP)
-- Auth: Authentik OAuth2 PKCE flow
+# Production (Gunicorn)
+gunicorn -w 4 -b 0.0.0.0:8080 app:app
 
-### VM2 — Windows (bridged, fixed IP: `192.168.1.178`)
-- Runs TM1 Server V12 (IBM Planning Analytics on-prem)
-- TM1 REST API on port 4444
-- Database name: `TM1 Governance`
+# Model Builder (run in order)
+python3 build_gbl_model.py          # Global dimensions first
+python3 build_cst_model.py          # CST cubes + dimensions second
 
-All three communicate over a bridged local network. No internet routing required.
+# TI linting
+python3 ti_lint.py <path/to/process.ti>
+```
 
 ---
 
-## Authentication Patterns
+## Architecture
 
-### TM1 Server (`core/tm1_connect.py`)
-OAuth2 client credentials flow against TM1's own auth endpoint:
+```text
+Browser (http://localhost:8080)
+    └── Flask app.py
+            ├── core/tm1_connect.py       → raw requests.Session (TM1 V12 cookie auth)
+            ├── core/tm1py_connect.py     → TM1Service (monkey-patched for V12 on-prem)
+            ├── core/paw_connect.py       → PAW Content Services (Authentik PKCE, 6-step)
+            ├── extract_tm1_model.py      → writes cube_map/tm1_model.json (cache)
+            └── static HTML tools         → CubeMap, PAW Tree, Health Monitor
 ```
-POST http://192.168.1.178:4444/tm1/auth/v1/session
-  auth=(client_id, client_secret)
-  body={User: 'akadmin'}
-→ returns TM1SessionId cookie
-```
-Session object has a `.base_url` attribute set to the database API root.
 
-### PAW (`core/paw_connect.py`)
-Full Authentik OAuth2 PKCE flow — 6 steps:
-1. GET PAW `/login` → redirects to Authentik with code_challenge
-2. POST Authentik username to flow executor
-3. POST Authentik password to flow executor
-4. GET Authentik authorize endpoint (prompt=login stripped)
-5. GET consent flow → returns redirect with OAuth code
-6. GET PAW `/login?code=...` → sets `paSession` + `ba-sso-csrf` cookies
+**Two connection methods — this is intentional:**
 
-All subsequent PAW API calls need:
-- Cookie: `paSession` (automatic via session)
-- Header: `ba-sso-authenticity: <value of ba-sso-csrf cookie>`
-
-PAW Content Services base URL: `http://192.168.1.223/pacontent/v1/`
+- `tm1_connect` (raw requests) → lightweight Flask endpoints, fast, minimal deps
+- `tm1py_connect` (TM1Service) → heavy extraction only (rules, attributes, DB() scanning)
 
 ---
 
 ## Project Structure
 
-```
-tm1-governance/
-├── core/                          # Shared connection helpers
-│   ├── __init__.py
-│   ├── tm1_connect.py             # TM1 REST session (raw requests)
-│   ├── tm1py_connect.py           # TM1py session (higher-level)
-│   ├── paw_connect.py             # PAW Authentik PKCE auth
-│   ├── groups.py                  # Live group/permission resolver (TODO)
-│   └── groups.json                # Group display annotations (colour, tm1_access)
-│
-├── model_builder/                 # Tool 1: Build/rebuild TM1 model (WIP)
-│   ├── build_gbl_model.py         # Master runner — GBL layer
-│   ├── build_cst_model.py         # Master runner — CST layer
-│   ├── cleanup_gbl_model.py
-│   ├── cleanup_cst_model.py
-│   ├── ti_lint.py                 # TI code linter/formatter
-│   ├── pro_to_json.py             # Convert .pro files to JSON
-│   ├── gbl/                       # create_gbl_*.py scripts
-│   ├── cst/                       # create_cst_*.py scripts
-│   ├── ti/                        # TI JSON definitions + deploy scripts
-│   └── pro_files/                 # Bedrock .pro files
-│
-├── cube_map/                      # Tool 2: Cube lineage visualiser
-│   ├── extract_tm1_model.py       # Pulls metadata from TM1 → JSON cache
-│   ├── tm1_model.json             # Generated cache — do not edit manually
-│   └── static/
-│       └── tm1_cube_lineage.html  # Self-contained Cytoscape diagram
-│
-├── paw_tree/                      # Tool 3: PAW workbook tree explorer + governance dashboard
-│   ├── paw_governance_explorer.jsx  # React prototype — not yet integrated
-│   └── static/
-│       └── tm1_paw_tree.html      # Two-tab UI: Tree view + Governance Dashboard
-│
-├── health_monitor/                # Tool 4: Ops health dashboard
-│   ├── backend.py                 # Flask routes, APScheduler, DuckDB (TODO)
-│   └── static/
-│       └── tm1_health_monitor.html
-│
-├── app.py                         # Flask entry point — mounts all tools
-├── requirements.txt
-├── CLAUDE.md                      # This file
-├── .env                           # Connection secrets — NOT in git
-├── .env.example                   # Placeholder template — safe to commit
-│
-├── docs/                          # Reference documents
-│   ├── TM1_Governance_Suite_Design.docx
-│   ├── TM1_Build_Script_Reference.docx
-│   ├── tm1_health_monitor_requirements.docx
-│   └── PAW_Field_Reference.docx
-│
-└── archive/                       # Legacy/backup files — ignore
+```text
+~/apps/tm1_governance/
+├── app.py                        # Flask server — mounts all tools
+├── core/
+│   ├── tm1_connect.py            # Raw TM1 session
+│   ├── tm1py_connect.py          # TM1py + V12 monkey-patches
+│   └── paw_connect.py            # PAW Authentik PKCE auth
+├── cube_map/
+│   ├── extract_tm1_model.py      # Full model extraction → JSON
+│   ├── tm1_model.json            # Generated cache (do not hand-edit)
+│   └── static/                   # CubeMap HTML/JS/CSS
+├── paw_tree/
+│   └── static/                   # PAW Tree HTML
+├── health_monitor/
+│   └── static/                   # Health Monitor HTML (stub)
+├── model_builder/
+│   ├── build_gbl_model.py        # Orchestrator — GBL dims
+│   ├── build_cst_model.py        # Orchestrator — CST cubes
+│   ├── create_gbl_*.py           # Individual GBL dimension scripts
+│   └── create_cst_*.py           # Individual CST cube/dim scripts
+├── groups.json                   # Role definitions (annotations only — not live IDP)
+├── .env                          # Credentials — never commit
+└── requirements.txt
 ```
 
 ---
 
-## PAW Tree — Feature Reference
+## Flask Routes
 
-The PAW Tree (`/workbook-tree`) is a two-tab governance tool for PAW workbooks.
-
-### Tree Tab
-
-Displays the full PAW folder hierarchy with live filtering:
-
-| Filter | Behaviour |
-|---|---|
-| Search | Full-text search across book names, paths, cube names |
-| Group | Filter to folders/books visible to a specific security group |
-| Cube | Filter tree to books containing a tab on this cube |
-| View | Narrow further to books using a specific view |
-| Dimension | Narrow further to books using a specific dimension |
-| Subset | Narrow to books where a specific subset is used; shows member count in drawer |
-
-Clicking any book opens a **detail drawer** (bottom slide-up panel) with:
-- **Section 1** — book metadata: type, visibility (Shared/🔒 Private), owner, path, created/modified/opened dates and users, state, permissions
-- **Section 2** (when cube+view selected) — tabs using this view
-- **Section 3** (when cube+view selected) — view definition: type badge (MDXView/NativeView), MDX query with Copy button
-
-**Private books** (from `/users/*` in PAW Content Services) are shown with an amber 🔒 icon and owner chip. Owner display names come from `system_properties.created_user_pretty_name` on the PAW user folder asset — not from the identity provider.
-
-### Governance Dashboard Tab
-
-Calculated entirely from the loaded tree data — no additional API calls. Shows:
-
-| Section | Contents |
-|---|---|
-| **Stat cards** | Total books · Stale 90+ days · Private books · Orphaned books |
-| **Stale books** | Books not opened in 60+ days, sorted most-stale first; "Never opened" badge for untouched books |
-| **Orphaned books** | Shared books whose `createdBy` is not a current PAW user (not found in `/users` folder list) |
-| **Recently modified** | Books modified in the last 7 days, sorted newest first |
-
-### PAW Content Services — Private Folder Discovery
-
-Private user content lives under `/users` in PAW (not `/user`). The backend (`api_paw_tree`):
-1. Walks `/users` to get all user folder assets
-2. Resolves display name from `system_properties.created_user_pretty_name` on the folder asset
-3. Walks each user's folder tree, flagging all books with `private=True, owner=<display_name>`
-4. Wraps results in a "Private Content" root node in the tree
-5. Users with no private content are not included (empty folder → no node)
-
----
-
-## Flask Routes (app.py)
-
-| Method | Path | Description |
-|---|---|---|
-| GET | `/` | Serve CubeMap HTML |
-| GET | `/workbook-tree` | Serve PAW Tree HTML |
-| GET | `/health-monitor` | Serve Health Monitor HTML |
-| GET | `/api/model` | Return cached `cube_map/tm1_model.json` |
-| POST | `/api/refresh` | Re-extract model from TM1, update cache |
-| GET | `/api/status` | Server + last-refresh info |
-| GET | `/api/groups` | Return resolved groups (reads `core/groups.json`) |
-| GET | `/api/paw/tree` | Walk PAW folder tree (shared + private), return JSON |
-| GET | `/api/tm1/cubes` | All non-system cube names |
-| GET | `/api/tm1/views?cube=` | All non-system view names for a cube |
-| GET | `/api/tm1/dimensions?cube=` | All non-system dimension names for a cube |
-| GET | `/api/tm1/subsets?cube=&dimension=` | All non-system subset names for a dimension |
-| GET | `/api/tm1/subset_info?dimension=&subset=` | Member count for a subset |
-| GET | `/api/tm1/views_with_subset?cube=&dimension=&subset=` | Views that use a specific subset |
-| GET | `/api/tm1/mdx?cube=&view=` | MDX query for a view (MDXView only) |
-
----
-
-## Technology Stack
-
-| Layer | Technology | Notes |
-|---|---|---|
-| Web server | Flask 3.1 | Serves all tools, exposes REST API |
-| TM1 connection | TM1py 2.2.4 | Higher-level API wrapper |
-| TM1 raw REST | requests 2.32 | Used for TI deploy, auth token |
-| PAW auth | requests + PKCE | 6-step Authentik OAuth2 flow |
-| Config | python-dotenv 1.1 | Loads `.env` at startup |
-| Diagrams (frontend) | Cytoscape.js 3.33.1 + Dagre | CubeMap graph rendering |
-| Frontend | Vanilla HTML/CSS/JS | No framework — self-contained files |
-| Health monitor DB | DuckDB | Session history, user activity |
-| Scheduling | APScheduler | 60-second auto-refresh |
-| Analytics (planned) | pandas + numpy | Governance reports |
-| Dashboard (planned) | Streamlit | Governance dashboard UI |
-
----
-
-## Model Builder — Layer Dependency Order
-
-**Build order (fresh environment):**
-1. `model_builder/ti/create_json_ti_meta_data_gbl_period.py` → generates TI JSON
-2. `model_builder/ti/create_ti_meta_data_gbl_period.py` → deploys and runs Period TI
-3. `model_builder/build_gbl_model.py` → builds all GBL dimensions/cubes
-4. `model_builder/build_cst_model.py` → builds all CST dimensions/cubes
-
-**Cleanup order (reverse dependency — CST first, then GBL):**
-1. `model_builder/cleanup_cst_model.py`
-2. `model_builder/cleanup_gbl_model.py`
-
-GBL = Global shared infrastructure (Account, Version, Department, Currency, Assumptions).
-CST = Costing module — depends on GBL. Never delete GBL while CST cubes exist.
-
----
-
-## Groups & Security
-
-`core/groups.json` stores display annotations only (colour, tm1_access level).
-Live group membership and folder permissions are resolved at runtime via:
-- **PAW Content Services API** — source of truth for groups, members, folder permissions, book ownership, and user display names
-- **TM1 REST API** — source of truth for active sessions and connected client list
-
-`core/groups.py` merges both sources with the annotations in `groups.json` (not yet built).
-
-### Identity Provider Independence
-
-**The governance suite must not depend on any specific identity provider.**
-Authentik (or any future SSO system — Azure AD, Okta, etc.) is used **only** to obtain an
-authenticated PAW session. Once the session is established, all user data comes exclusively
-from PAW Content Services and the TM1 REST API:
-
-| Data | Source |
-|---|---|
-| User display names | PAW `system_properties.created_user_pretty_name` etc. |
-| Book ownership | PAW asset `system_properties` |
-| Last opened by / date | PAW `used_user_pretty_name` / `used_date` |
-| Folder permissions | PAW Content Services API |
-| Active sessions / clients | TM1 REST API |
-| Historical snapshots | DuckDB (written by Health Monitor) |
-
-Never call the Authentik API to resolve user identity, group membership, or display names.
-If the SSO provider changes, only `core/paw_connect.py` should need to change.
+| Method | Endpoint | Description |
+| ------ | -------- | ----------- |
+| GET | `/` | CubeMap HTML |
+| GET | `/workbook-tree` | PAW Tree HTML |
+| GET | `/health-monitor` | Health Monitor HTML |
+| POST | `/api/refresh` | Triggers background TM1 extraction |
+| GET | `/api/status` | Last run / error / cube count |
+| GET | `/api/model` | Cached model JSON |
+| GET | `/api/tm1/*` | Live TM1 metadata (cubes, dims, views) |
+| GET | `/api/paw/tree` | PAW content tree |
+| GET | `/api/config` | Client-safe config values only |
 
 ---
 
 ## Key Conventions
 
-- **Config lives in `.env`** — never hardcode IPs or credentials in source files
-- **`.env.example`** is the safe-to-commit template — keep it up to date when adding new vars
-- **`tm1_connect.py`** — use for raw REST calls (TI deploy, auth)
-- **`tm1py_connect.py`** — use for all dimension/cube build operations
-- **HTML tools are self-contained** — they can run standalone with embedded sample data; the Flask backend adds live data
-- **`cube_map/tm1_model.json`** is a generated cache — never edit manually, always regenerate via `/api/refresh`
-- **Python 3.12** — ships with Ubuntu 24.04, all scripts target this version
-- **Virtual environment** at `venv/` — always activate before running scripts
-- **All scripts** use `sys.path.insert(0, str(Path(__file__).resolve().parent...))` (dynamic, relative to `__file__`) and import from `core.*`
+**TM1 objects:** Ignore anything starting with `}` — these are system objects.
+**PAW paths:** Double URL-encode all paths (`/shared` → `%252fshared`).
+**Credentials:** All in `.env` — never hardcode, never log.
+**Non-system filter:** `not name.startswith('}')` — applied everywhere.
+**Architecture Score:** Removed from UI — scoring logic kept in extractor for future use.
 
 ---
 
-## Running the App
+## Critical Gotchas
 
-```bash
-cd ~/apps/tm1_governance
-./run.sh
-```
-
-Then open:
-- http://localhost:8080 — CubeMap
-- http://localhost:8080/workbook-tree — PAW Tree
-- http://localhost:8080/health-monitor — Health Monitor
-
----
-
-## Current WIP / Known Issues
-
-- Model Builder CST scripts not yet complete
-- Health Monitor backend (`health_monitor/backend.py`) not yet built — HTML renders with sample data
-- `core/groups.py` live resolver not yet built — `api/groups` currently reads static `core/groups.json`
-- `paw_tree/paw_governance_explorer.jsx` is a React prototype — superseded by `tm1_paw_tree.html`, can be removed
-- Orphaned book detection uses PAW private folder owners as the "current user list" — users with no private content won't appear, so some shared books may be incorrectly flagged; a `/api/paw/users` endpoint returning all PAW users regardless of private content would fix this
-
----
-
-## Documents (in `docs/`)
-
-| File | Contents |
-|---|---|
-| `TM1_Governance_Suite_Design.docx` | Full technical design, architecture, component specs |
-| `TM1_Build_Script_Reference.docx` | Every build script described, build/rebuild sequences |
-| `tm1_health_monitor_requirements.docx` | Health Monitor tab-by-tab requirements spec |
-| `PAW_Field_Reference.docx` | PAW Content Services API field reference |
+- **TM1py V12 patches** — `tm1py_connect.py` monkey-patches `_set_version` and `_construct_root` before every connection. Without these, TM1py fails on V12 on-prem. Do not remove.
+- **PAW double-encoding** — PAW Content Services requires paths double-encoded. `encode_path()` does `quote(quote(...))` deliberately — this is correct, not a bug.
+- **Session auth** — TM1 uses `TM1SessionId` cookie (not Bearer token). PAW uses `paSession` cookie + `ba-sso-authenticity` header.
+- **Background refresh thread** — uses a lock + `already_running` 409 guard. Do not make the refresh endpoint synchronous.
+- **groups.json** — role definitions for governance UI only. Never query the identity provider (Authentik) for governance data — it changes too often and is not the source of truth.
+- **Private views API** — `GET /Cubes('{cube}')/PrivateViews` is hard-scoped to the authenticated user. `TM1-Impersonate` header exists (TM1 11.1.0+) but only works with CAM/LDAP auth — silently ignored on V12 OAuth (client_id/client_secret) auth. On V11 with traditional auth, impersonation should work: pass `TM1-Impersonate: <username>` on the `/auth/v1/session` POST, then query PrivateViews with the returned session. Confirmed non-working on V12 via `ActiveUser` — always returns admin regardless of header. Test on V11 when available.
+- **Private subsets API** — same hard-scoping and same impersonation limitation as private views.
+- **PAW private books** — fully visible to admin. Walk `/users/{uuid}/` to enumerate all users' private books. Owner resolved via `system_properties.created_user_pretty_name`. Confirmed working with test user (testpaw / "test tester"). This IS in scope for governance tooling.
 
 ---
 
 ## TODO
 
+### High Priority
+
+- [ ] Cache TM1 sessions (5–10 min TTL) — biggest performance win
+- [ ] Add `flask-compress` + static cache headers
+- [ ] Add `/api/paw/users` endpoint — fixes orphaned book detection
 - [ ] Complete CST Model Builder scripts
-- [ ] Build `core/groups.py` live PAW + TM1 group resolver (no Authentik dependency)
-- [ ] Build Health Monitor backend (Flask + DuckDB + APScheduler)
-- [ ] Move `core/groups.json` to annotations only (strip any live data)
-- [ ] Remove `paw_tree/paw_governance_explorer.jsx` (superseded by tm1_paw_tree.html)
-- [ ] Add `/api/paw/users` endpoint returning all PAW users (not just those with private content) to improve orphaned book detection
-- [ ] Add GitHub remote backup
-- [ ] Set up gunicorn for production
-- [ ] Add second monitor to dev setup
+
+### Medium Priority
+
+- [ ] Add `.claude/settings.json` with deny rules for `.env`
+- [ ] Health Monitor backend (DuckDB + APScheduler)
+- [ ] Move `.env` loading to app startup, inject into `app.config`
+- [ ] Add rate-limiting on `/api/refresh`
+
+### Nice to Have
+
+- [ ] Move `groups.json` to annotations-only; build `core/groups.py` live resolver
+- [ ] Gunicorn + nginx for shared deployments
+- [ ] Prometheus `/metrics` endpoint
+- [ ] Structured JSON logging option
+
+---
+
+## Roadmap — Governance Platform
+
+### CubeMap — Edge Classification
+
+- [ ] Split rules text at FEEDERS; keyword — only scan calc section for DB() edges; feeder section DB() = performance hints not data flow
+- [ ] Classify edges: `rule_calc` (before FEEDERS;) vs `rule_feeder` (after FEEDERS;)
+- [ ] Classify edges by measure type: value measures (Amount/Apportioned Amount/Settled Amount) = flow, rate/driver measures (Driver Percentage Share/Apportionment Rate) = lookup
+- [ ] Add edge type field to tm1_model.json: rule_flow, rule_lookup, rule_feeder, python, ti
+- [ ] UI toggle checkbox: show/hide feeder edges independently from calc edges
+- [ ] Hybrid extractor: live TM1 scan for metadata + local YAML/Python scan for Python ETL edges
+- [ ] Save/load named diagram layouts (Cytoscape cy.json() → Flask → layouts/{name}.json)
+
+### CubeMap — Enriched Extraction
+
+- [ ] Extract measure dimension elements (actual measure names) → surface in node detail panel
+- [ ] Extract public views per cube (names + count) → show in node drawer
+- [ ] TI process edges: which TI processes write to each cube → complete data lineage picture
+- [ ] Chore connections: which chores schedule TI processes that touch each cube
+
+### CubeMap — Calculation Trace (next priority)
+
+User picks a cube + measure name → system traces back through rule formulas recursively until it hits root cubes (no rule = TI/Python loaded). Displayed as an expandable formula tree. Two phases:
+
+- [ ] **Phase 1 — Static trace**: Parse rules text already in model JSON. Extract `['Measure'] = DB('SourceCube', ..., 'SourceMeasure')` chains. Walk back recursively, max 4–5 levels. Render as collapsible tree in a side panel. No TM1 re-extraction needed — rules text already in model.
+- [ ] **Phase 2 — AI explanation**: Pass the formula tree to Claude API → plain English description of the full calculation logic. Useful for onboarding finance staff and auditors who can't read TM1 rules. Cache explanation in `rules_analysis/` so it's not re-generated every time.
+
+### CubeMap — Inherited Model Support
+
+- [ ] Reverse engineer extractor: pull cubes, rules, TI, dimensions, views, subsets from live server → YAML
+- [ ] Git baseline on day one for inherited servers with no source control
+- [ ] AI-assisted analysis: explain rules, find missing feeders, identify circular references
+
+### PAW Tree — Extended Consumer View
+
+- [ ] Action buttons: extract from workbook JSON → show TI process called + parameters
+- [ ] Websheet scanning: download .xlsx from TM1 Web filesystem, parse PAX formulas with openpyxl — Extract PAX.VIEW, PAX.ELEMENT, PAX.SUBNM references → cube/view/dimension/subset links
+- [ ] Full tree: Folder → Workbook → Views + Action Buttons + Websheets
+- [ ] Cross-tool link: click cube/view reference in PAW Tree → highlight in CubeMap
+
+### ABC Apportionment Engine
+
+A Python script (outside this repo — location TBC) implements **reciprocal / simultaneous ABC cost allocation** using fixed-point iteration to solve a Leontief Input-Output system.
+
+Script should be relocated into `model_builder/abc/` and documented here once found.
+
+#### Theoretical Model
+
+**Core structure:** Cost Pools and Activities modelled as nodes in a directed weighted graph. Allocation drivers are weighted edges. The system finds the equilibrium state where all reciprocal flows have settled.
+
+**Mathematical formulation (Leontief Input-Output Model):**
+
+```text
+b = (I - A)⁻¹ × d
+
+Where:
+  b = final fully-loaded costs (what we solve for)
+  d = initial costs (direct assignment from Stage 1/2)
+  A = allocation matrix (driver percentages between nodes)
+  I = identity matrix
+```
+
+**Solution method — Fixed-Point Iteration** (rather than direct matrix inversion):
+
+```text
+bₙ₊₁ = d + A × bₙ   (repeat until convergence)
+```
+
+Converges because allocation percentages are bounded (≤ 1 per source) and settled amounts remove mass from the loop — a contraction mapping.
+
+#### Multi-Stage Decomposition
+
+```text
+Account → Pool          (direct assignment)
+Pool    → Pool          (reciprocal loop — fixed-point iteration)
+Pool    → Activity
+Activity → Activity     (reciprocal loop — fixed-point iteration)
+Activity → Service Line (final allocation)
+```
+
+Each reciprocal stage independently solves a closed system of interdependent allocations.
+
+#### Why This Is Advanced
+
+Most costing systems use **Step-Down** — costs flow in one direction only, feedback loops ignored.
+
+This engine implements **true Reciprocal Allocation**:
+
+- Pools allocate to pools; activities allocate to activities
+- All feedback loops fully captured
+- Mathematically equivalent to an Input-Output economic model
+- Produces fully loaded costs at equilibrium: *"costs circulate through a network of pools and activities until they settle into a stable equilibrium"*
+
+### Health Monitor
+
+- [ ] Orphaned cubes: exist in TM1 but no PAW workbook, websheet or TI references them
+- [ ] Broken consumers: workbook/websheet references deleted cube, view or dimension
+- [ ] Orphaned TI processes: no chore, no PAW action button calling them
+- [ ] Stale chores: scheduled TI processes not run recently or failing
+- [ ] Security gaps: cubes with no group access defined

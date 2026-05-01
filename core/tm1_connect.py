@@ -1,4 +1,6 @@
 import os
+import time
+import threading
 import requests
 from pathlib import Path
 from dotenv import load_dotenv
@@ -14,7 +16,15 @@ TM1_CONFIG = {
     'user':          os.environ['TM1_USER'],
 }
 
-def get_session():
+SESSION_TTL = 600  # 10 minutes
+
+_cache_lock = threading.Lock()
+_cached_session = None
+_cache_expiry = 0
+
+
+def _new_session():
+    """Authenticate and return a fresh requests.Session."""
     cfg = TM1_CONFIG
     base = f"http://{cfg['address']}:{cfg['port']}/tm1"
 
@@ -24,6 +34,7 @@ def get_session():
         headers={'Content-Type': 'application/json'},
         json={'User': cfg['user']}
     )
+    auth.raise_for_status()
 
     token = auth.cookies.get('TM1SessionId')
     session = requests.Session()
@@ -31,6 +42,28 @@ def get_session():
     session.headers.update({'Content-Type': 'application/json'})
     session.base_url = f"{base}/api/v1/Databases('{cfg['database']}')"
     return session
+
+
+def get_session():
+    """Return a cached TM1 session, re-authenticating if expired."""
+    global _cached_session, _cache_expiry
+
+    with _cache_lock:
+        if _cached_session is None or time.time() > _cache_expiry:
+            _cached_session = _new_session()
+            _cache_expiry = time.time() + SESSION_TTL
+
+    return _cached_session
+
+
+def invalidate_session():
+    """Force re-authentication on the next get_session() call.
+    Call this if a request returns 401 or 403."""
+    global _cached_session, _cache_expiry
+    with _cache_lock:
+        _cached_session = None
+        _cache_expiry = 0
+
 
 if __name__ == '__main__':
     session = get_session()

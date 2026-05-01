@@ -1,316 +1,1313 @@
 {
   "meta": {
-    "extractedAt": "2026-03-18T11:25:26.904124+00:00",
-    "cubeCount": 10,
-    "archScore": 70
+    "database": "TM1 Governance",
+    "server": "192.168.1.178:4444",
+    "extractedAt": "2026-05-01T04:30:35.390491+00:00",
+    "cubeCount": 19,
+    "archScore": 7
   },
-  "elements": {
-    "nodes": [
-      {
-        "data": {
-          "id": "CST Activity Allocation",
-          "label": "CST Activity Allocation",
-          "type": "CST",
-          "color": "#8957e5",
-          "complexity": 0,
-          "desc": "CST Activity Allocation \u2014 No description found.",
-          "dims": [
-            {
-              "n": "CST Activity",
-              "k": "cst"
-            },
-            {
-              "n": "CST Cost Pool",
-              "k": "cst"
-            },
-            {
-              "n": "GBL Period",
-              "k": "global"
-            },
-            {
-              "n": "GBL Version",
-              "k": "global"
-            },
-            {
-              "n": "CST Activity Allocation Measure",
-              "k": "measure"
-            }
-          ]
+  "cubes": {
+    "CST Account Config": {
+      "type": "allocation",
+      "desc": "CST Account Config — description not yet set.",
+      "descSource": "ai_inferred",
+      "dims": [
+        {
+          "n": "GBL Period",
+          "k": "global"
+        },
+        {
+          "n": "GBL Version",
+          "k": "global"
+        },
+        {
+          "n": "GBL Account",
+          "k": "global"
+        },
+        {
+          "n": "GBL Cost Centre",
+          "k": "global"
+        },
+        {
+          "n": "CST Cost Pool",
+          "k": "cst"
+        },
+        {
+          "n": "CST Service Line",
+          "k": "cst"
+        },
+        {
+          "n": "CST Account Config Measure",
+          "k": "measure"
         }
+      ],
+      "rules": {
+        "total": 50,
+        "lines": 29,
+        "comments": 14,
+        "dbRefs": 11,
+        "feeders": 1,
+        "ifs": 0,
+        "stet": 0,
+        "skip": 1
       },
-      {
-        "data": {
-          "id": "CST Activity Driver",
-          "label": "CST Activity Driver",
-          "type": "CST",
-          "color": "#8957e5",
-          "complexity": 0,
-          "desc": "CST Activity Driver \u2014 No description found.",
-          "dims": [
-            {
-              "n": "CST Activity",
-              "k": "cst"
-            },
-            {
-              "n": "CST Service Line",
-              "k": "cst"
-            },
-            {
-              "n": "GBL Period",
-              "k": "global"
-            },
-            {
-              "n": "GBL Version",
-              "k": "global"
-            },
-            {
-              "n": "CST Activity Driver Measure",
-              "k": "measure"
-            }
-          ]
+      "rulesText": "SKIPCHECK;\nFEEDSTRINGS;\n\n# Direct Amount: per-account, per-CC, per-SL direct cost amount.\n# Amount stored at SL='Input' (account/CC level); Direct % stored at CC='Input' (account/SL level).\n# Product gives the direct cost amount attributable to each SL for each account/CC combination.\n['CST Account Config Measure':'Direct Amount'] = N:\n  ['CST Account Config Measure':'Amount', 'CST Service Line':'Input'] *\n  ['CST Account Config Measure':'Direct %', 'GBL Cost Centre':'Input'] / 100;\n\nFEEDERS;\n\n# Feed Amount for indirect accounts into Stage 1.\n# Amount stored at CP='Input', SL='Input' — both dims not applicable for the GL amount itself.\n# Also wakes up Direct Amount across all SLs, and RC00 GL Input Summary in Reconciliation.\n['CST Account Config Measure':'Amount','CST Cost Pool':'Input','CST Service Line':'Input'] =>\n  DB('CST Account to Pool Apportionment', !GBL Period, !GBL Version,\n     !CST Cost Pool, !GBL Cost Centre, !GBL Account, 'Amount'),\n  DB('CST Account Config', !GBL Period, !GBL Version,\n     !GBL Account, !GBL Cost Centre, 'Input', 'Total Service Lines', 'Direct Amount'),\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC00', 'Input Total'),\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC00', 'Output Total'),\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC00', 'Variance Percent'),\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC00', 'Status');\n\n# Feed Pre Apportionment Amount in P&L Report cube.\n# Hardcode Stage='Pre Apportionment' — not a dimension in Account Config.\n# Service Line pinned to 'Input' in both source and target — SL not known pre-apportionment.\n['CST Account Config Measure':'Amount','CST Cost Pool':'Input','CST Service Line':'Input'] =>\n  DB('CST Profit and Loss Report', !GBL Period, !GBL Version,\n     !GBL Account, 'CST Service Line':'Input', !GBL Cost Centre,\n     'Pre Apportionment', 'Amount');\n\n# Feed Apportionment Rate and Apportioned Amount for indirect accounts.\n# Driver Percentage Share stored at specific CP, SL='Input'.\n['CST Account Config Measure':'Driver Percentage Share','CST Service Line':'Input'] =>\n  DB('CST Account to Pool Apportionment', !GBL Period, !GBL Version,\n     !CST Cost Pool, !GBL Cost Centre, !GBL Account, 'Apportionment Rate'),\n  DB('CST Account to Pool Apportionment', !GBL Period, !GBL Version,\n     !CST Cost Pool, !GBL Cost Centre, !GBL Account, 'Apportioned Amount');\n\n# Feed direct cost Amount and Apportioned Amount into Stage 3 (bypassing Stages 1 and 2).\n# Activity='Input' sentinel used — direct costs are not associated with any specific activity.\n# Direct Amount fires per (Account, CC, SL) — SL coord feeds the correct A2SL cell directly.\n['CST Account Config Measure':'Direct Amount'] =>\n  DB('CST Activity to Service Line Apportionment', !GBL Period, !GBL Version,\n     !CST Service Line, 'CST Activity':'Input', !GBL Cost Centre, 'Amount'),\n  DB('CST Activity to Service Line Apportionment', !GBL Period, !GBL Version,\n     !CST Service Line, 'CST Activity':'Input', !GBL Cost Centre, 'Apportioned Amount');\n",
+      "hasRules": true,
+      "ramMb": null,
+      "views": [
+        [
+          "RPT Apportionment Type TEST PRIVATE"
+        ],
+        [
+          "Default",
+          "RPT Account-Cost Centre to Pool Percentage",
+          "RPT Apportionment Type",
+          "RPT Default",
+          "RPT Direct Cost Amount",
+          "RPT Direct Cost Config",
+          "SYS Default",
+          "SYS PnL"
+        ]
+      ],
+      "measures": [
+        "Amount",
+        "Apportionment Type",
+        "Driver Percentage Share",
+        "Direct %",
+        "Direct Amount"
+      ],
+      "from": [
+        {
+          "n": "CST Account to Pool Apportionment",
+          "t": "rule_feeder"
+        },
+        {
+          "n": "CST Apportionment Reconciliation",
+          "t": "rule_feeder"
+        },
+        {
+          "n": "CST Profit and Loss Report",
+          "t": "rule_feeder"
+        },
+        {
+          "n": "CST Activity to Service Line Apportionment",
+          "t": "rule_feeder"
+        },
+        {
+          "n": "ETL — Load GL",
+          "t": "python"
         }
+      ],
+      "to": [
+        {
+          "n": "CST Account to Pool Apportionment",
+          "t": "rule_calc"
+        },
+        {
+          "n": "CST Activity to Service Line Apportionment",
+          "t": "rule_calc"
+        },
+        {
+          "n": "CST Apportionment Reconciliation",
+          "t": "rule_calc"
+        },
+        {
+          "n": "CST Profit and Loss Report",
+          "t": "rule_calc"
+        }
+      ]
+    },
+    "CST Account to Pool Apportionment": {
+      "type": "allocation",
+      "desc": "CST Account to Pool Apportionment — description not yet set.",
+      "descSource": "ai_inferred",
+      "dims": [
+        {
+          "n": "GBL Period",
+          "k": "global"
+        },
+        {
+          "n": "GBL Version",
+          "k": "global"
+        },
+        {
+          "n": "CST Cost Pool",
+          "k": "cst"
+        },
+        {
+          "n": "GBL Cost Centre",
+          "k": "global"
+        },
+        {
+          "n": "GBL Account",
+          "k": "global"
+        },
+        {
+          "n": "CST Account to Pool Apportionment Measure",
+          "k": "measure"
+        }
+      ],
+      "rules": {
+        "total": 46,
+        "lines": 27,
+        "comments": 12,
+        "dbRefs": 15,
+        "feeders": 2,
+        "ifs": 0,
+        "stet": 0,
+        "skip": 1
       },
-      {
-        "data": {
-          "id": "CST Allocation Config",
-          "label": "CST Allocation Config",
-          "type": "CST",
-          "color": "#8957e5",
-          "complexity": 0,
-          "desc": "CST Allocation Config \u2014 No description found.",
-          "dims": [
-            {
-              "n": "CST Config Item",
-              "k": "cst"
-            },
-            {
-              "n": "GBL Version",
-              "k": "global"
-            },
-            {
-              "n": "CST Allocation Config Measure",
-              "k": "measure"
-            }
-          ]
+      "rulesText": "SKIPCHECK;\nFEEDSTRINGS;\n\n# Amount: overhead GL amount for this Account / Cost Centre.\n# Only populated for Indirect accounts — Direct and Excluded accounts produce zero here.\n# Account Config now has 7 dims; SL='Input' sentinel used (SL not applicable for indirect routing).\n['Amount'] = N:\n  IF( DB('CST Account Config', !GBL Period, !GBL Version, !GBL Account, 'Input', 'Input', 'Input', 'Apportionment Type') @= 'Indirect',\n      DB('CST Account Config', !GBL Period, !GBL Version, !GBL Account, !GBL Cost Centre, 'Input', 'Input', 'Amount'),\n      0);\n\n# Apportionment Rate: driver percentage share for this Account / CC → Cost Pool.\n# SL='Input' sentinel — SL not applicable at this stage.\n['Apportionment Rate'] = N:\n  DB('CST Account Config', !GBL Period, !GBL Version, !GBL Account, !GBL Cost Centre, !CST Cost Pool, 'Input', 'Driver Percentage Share');\n\n# Apportioned Amount: GL amount allocated to this Cost Pool.\n['Apportioned Amount'] = N:\n  ['Amount'] * ['Apportionment Rate'] / 100;\n\nFEEDERS;\n\n# Chain to Stage 2: feed Amount across all Activities via Total Activities consolidation.\n# Also explicitly feed Activity='Input' — weight=0 elements are not woken by consolidation feeders.\n# Activity='Input' stores the pool total used by RC02 and Stage 1b Settled Amount logic.\n['Apportioned Amount'] =>\n  DB('CST Pool to Activity Apportionment', !GBL Period, !GBL Version,\n     'Total Activities', !CST Cost Pool, 'Total Cost Centres', 'Amount'),\n  DB('CST Pool to Activity Apportionment', !GBL Period, !GBL Version,\n     'CST Activity':'Input', !CST Cost Pool, 'GBL Cost Centre':'Total Cost Centres', 'Amount');\n\n# Feed RC01 and RC02 in Reconciliation cube.\n# RC02 Input Total reads A2P Apportioned Amount (same source) — feeder lives here.\n# RC02 Output Total reads P2A Settled Amount (stored by Python) — feeder here wakes it up.\n['Apportioned Amount'] =>\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC01', 'Input Total'),\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC01', 'Output Total'),\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC01', 'Variance'),\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC01', 'Variance Percent'),\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC01', 'Status'),\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC02', 'Input Total'),\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC02', 'Output Total'),\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC02', 'Variance'),\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC02', 'Variance Percent'),\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC02', 'Status');\n",
+      "hasRules": true,
+      "ramMb": null,
+      "views": [
+        [],
+        [
+          "Default",
+          "RPT Default",
+          "SYS Account to Pool 1b",
+          "SYS Account to Pool Example",
+          "SYS Stage 1b"
+        ]
+      ],
+      "measures": [
+        "Amount",
+        "Apportionment Rate",
+        "Apportioned Amount"
+      ],
+      "from": [
+        {
+          "n": "CST Account Config",
+          "t": "rule_calc"
+        },
+        {
+          "n": "CST Pool to Activity Apportionment",
+          "t": "rule_feeder"
+        },
+        {
+          "n": "CST Apportionment Reconciliation",
+          "t": "rule_feeder"
         }
+      ],
+      "to": [
+        {
+          "n": "CST Account Config",
+          "t": "rule_feeder"
+        },
+        {
+          "n": "CST Apportionment Reconciliation",
+          "t": "rule_calc"
+        },
+        {
+          "n": "CST Pool to Activity Apportionment",
+          "t": "rule_calc"
+        },
+        {
+          "n": "ETL — Run Apportionment",
+          "t": "python"
+        }
+      ]
+    },
+    "CST Activity Config": {
+      "type": "allocation",
+      "desc": "CST Activity Config — description not yet set.",
+      "descSource": "ai_inferred",
+      "dims": [
+        {
+          "n": "GBL Period",
+          "k": "global"
+        },
+        {
+          "n": "GBL Version",
+          "k": "global"
+        },
+        {
+          "n": "CST Activity",
+          "k": "cst"
+        },
+        {
+          "n": "CST Driver",
+          "k": "cst"
+        },
+        {
+          "n": "CST Service Line",
+          "k": "cst"
+        },
+        {
+          "n": "CST Activity Config Measure",
+          "k": "measure"
+        }
+      ],
+      "rules": {
+        "total": 29,
+        "lines": 16,
+        "comments": 8,
+        "dbRefs": 3,
+        "feeders": 1,
+        "ifs": 0,
+        "stet": 0,
+        "skip": 1
       },
-      {
-        "data": {
-          "id": "CST Allocation Reconciliation",
-          "label": "CST Allocation Reconciliation",
-          "type": "CST",
-          "color": "#8957e5",
-          "complexity": 0,
-          "desc": "CST Allocation Reconciliation \u2014 No description found.",
-          "dims": [
-            {
-              "n": "CST Reconciliation Check",
-              "k": "cst"
-            },
-            {
-              "n": "GBL Period",
-              "k": "global"
-            },
-            {
-              "n": "GBL Version",
-              "k": "global"
-            },
-            {
-              "n": "CST Allocation Reconciliation Measure",
-              "k": "measure"
-            }
-          ]
+      "rulesText": "SKIPCHECK;\nFEEDSTRINGS;\n\n# Driver Percentage Share per Activity → Service Line.\n# Input Volume per (activity, Input, service_line) is the basis for all activities.\n# For activities with basis = 'Input', volumes are direct user entry.\n# For driver-based activities (e.g. BEDDAYS), volumes are entered per SL to represent\n# the relative driver quantities by service line.\n# Only fires where CST Driver = 'Input'.\n['Driver Percentage Share'] = N:\n  IF( !CST Driver @<> 'Input', CONTINUE,\n    IF( ['Input Volume'] = 0, 0,\n      ['Input Volume'] /\n      DB('CST Activity Config', !GBL Period, !GBL Version, !CST Activity, 'Input', 'Total Service Lines', 'Input Volume')\n      * 100\n    )\n  );\n\nFEEDERS;\n\n# Feed Driver Percentage Share — fired by stored Input Volume at (activity, Input, service_line).\n['CST Driver':'Input','CST Activity Config Measure':'Input Volume'] =>\n  DB('CST Activity Config', !GBL Period, !GBL Version, !CST Activity, 'Input', !CST Service Line, 'Driver Percentage Share');\n\n# Feed Apportionment Rate in Stage 3 — Cost Centre not in Activity Config so use Total Cost Centres consolidation.\n['CST Driver':'Input','CST Activity Config Measure':'Driver Percentage Share'] =>\n  DB('CST Activity to Service Line Apportionment', !GBL Period, !GBL Version,\n     !CST Service Line, !CST Activity, 'GBL Cost Centre':'Total Cost Centres', 'Apportionment Rate');\n",
+      "hasRules": true,
+      "ramMb": null,
+      "views": [
+        [],
+        [
+          "Default",
+          "RPT Default",
+          "SYS Activity to SL Drivers and Volumes",
+          "SYS Drivers and Driver Volumes"
+        ]
+      ],
+      "measures": [
+        "Activity to Service Line Basis",
+        "Driver Value",
+        "Input Volume",
+        "Input Description",
+        "Driver Percentage Share"
+      ],
+      "from": [
+        {
+          "n": "CST Activity to Service Line Apportionment",
+          "t": "rule_feeder"
+        },
+        {
+          "n": "ETL — Load Drivers",
+          "t": "python"
         }
+      ],
+      "to": [
+        {
+          "n": "CST Activity to Service Line Apportionment",
+          "t": "rule_calc"
+        },
+        {
+          "n": "CST Pool Config",
+          "t": "rule_calc"
+        }
+      ]
+    },
+    "CST Activity to Activity Config": {
+      "type": "allocation",
+      "desc": "CST Activity to Activity Config — description not yet set.",
+      "descSource": "ai_inferred",
+      "dims": [
+        {
+          "n": "GBL Period",
+          "k": "global"
+        },
+        {
+          "n": "GBL Version",
+          "k": "global"
+        },
+        {
+          "n": "CST Activity",
+          "k": "cst"
+        },
+        {
+          "n": "CST Activity Dest",
+          "k": "cst"
+        },
+        {
+          "n": "GBL Cost Centre",
+          "k": "global"
+        },
+        {
+          "n": "CST Activity to Activity Config Measure",
+          "k": "measure"
+        }
+      ],
+      "rules": {
+        "total": 23,
+        "lines": 15,
+        "comments": 4,
+        "dbRefs": 3,
+        "feeders": 1,
+        "ifs": 0,
+        "stet": 0,
+        "skip": 1
       },
-      {
-        "data": {
-          "id": "CST Cost Pool Allocation",
-          "label": "CST Cost Pool Allocation",
-          "type": "CST",
-          "color": "#8957e5",
-          "complexity": 0,
-          "desc": "CST Cost Pool Allocation \u2014 No description found.",
-          "dims": [
-            {
-              "n": "CST Cost Pool",
-              "k": "cst"
-            },
-            {
-              "n": "GBL Account",
-              "k": "global"
-            },
-            {
-              "n": "GBL Period",
-              "k": "global"
-            },
-            {
-              "n": "GBL Version",
-              "k": "global"
-            },
-            {
-              "n": "CST Cost Pool Allocation Measure",
-              "k": "measure"
-            }
-          ]
+      "rulesText": "SKIPCHECK;\nFEEDSTRINGS;\n\n# Driver Percentage Share: normalise Driver Value to percentage per source Activity.\n# Same pattern as CST Pool to Pool Config — Python reads Driver Value directly and\n# normalises in the solver, but Driver Percentage Share is available for PAW review.\n['Driver Percentage Share'] = N:\n  IF(\n    DB('CST Activity to Activity Config', !GBL Period, !GBL Version,\n       !CST Activity, 'Total Activity Dest', 'Input', 'Driver Value') = 0, 0,\n    ['Driver Value'] /\n    DB('CST Activity to Activity Config', !GBL Period, !GBL Version,\n       !CST Activity, 'Total Activity Dest', 'Input', 'Driver Value')\n    * 100\n  );\n\nFEEDERS;\n\n# Feed Driver Percentage Share — fired when Driver Value is stored.\n['CST Activity to Activity Config Measure':'Driver Value'] =>\n  DB('CST Activity to Activity Config', !GBL Period, !GBL Version,\n     !CST Activity, !CST Activity Dest, 'Input', 'Driver Percentage Share');\n",
+      "hasRules": true,
+      "ramMb": null,
+      "views": [
+        [],
+        [
+          "Default",
+          "RPT Default",
+          "SYS Activity to Activity Driver"
+        ]
+      ],
+      "measures": [
+        "Driver Value",
+        "Driver Description",
+        "Driver Percentage Share",
+        "Apportioned Amount",
+        "Iteration Number"
+      ],
+      "from": [
+        {
+          "n": "ETL — Load Drivers",
+          "t": "python"
         }
+      ],
+      "to": []
+    },
+    "CST Activity to Service Line Apportionment": {
+      "type": "rollup",
+      "desc": "CST Activity to Service Line Apportionment — description not yet set.",
+      "descSource": "ai_inferred",
+      "dims": [
+        {
+          "n": "GBL Period",
+          "k": "global"
+        },
+        {
+          "n": "GBL Version",
+          "k": "global"
+        },
+        {
+          "n": "CST Service Line",
+          "k": "cst"
+        },
+        {
+          "n": "CST Activity",
+          "k": "cst"
+        },
+        {
+          "n": "GBL Cost Centre",
+          "k": "global"
+        },
+        {
+          "n": "CST Activity to Service Line Apportionment Measure",
+          "k": "measure"
+        }
+      ],
+      "rules": {
+        "total": 71,
+        "lines": 41,
+        "comments": 20,
+        "dbRefs": 12,
+        "feeders": 1,
+        "ifs": 0,
+        "stet": 0,
+        "skip": 1
       },
-      {
-        "data": {
-          "id": "CST GL Input",
-          "label": "CST GL Input",
-          "type": "CST",
-          "color": "#8957e5",
-          "complexity": 0,
-          "desc": "CST GL Input \u2014 No description found.",
-          "dims": [
-            {
-              "n": "GBL Account",
-              "k": "global"
-            },
-            {
-              "n": "GBL Department",
-              "k": "global"
-            },
-            {
-              "n": "GBL Period",
-              "k": "global"
-            },
-            {
-              "n": "GBL Version",
-              "k": "global"
-            },
-            {
-              "n": "CST GL Input Measure",
-              "k": "measure"
-            }
-          ]
+      "rulesText": "SKIPCHECK;\nFEEDSTRINGS;\n\n# Amount: total cost in this Activity after Stage 2 (Pool → Activity).\n# At Activity='Input': sum of direct cost amounts across all direct accounts for this CC/SL.\n# Direct costs bypass Stages 1 and 2 entirely — Account Config Direct Amount feeds this cell.\n['Amount'] = N:\n  IF( !CST Activity @= 'Input',\n      DB('CST Account Config', !GBL Period, !GBL Version,\n         'TOTAL DIRECT COSTS', !GBL Cost Centre, 'Input', !CST Service Line, 'Direct Amount'),\n      DB('CST Pool to Activity Apportionment', !GBL Period, !GBL Version, !CST Activity,\n         'Total Cost Pools', !GBL Cost Centre, 'Apportioned Amount') );\n\n# Apportionment Rate: driver percentage share for this Activity → Service Line.\n# Computed by Activity Config rule at (activity, Input, service_line).\n# Not applicable for direct costs (Activity='Input') — rate not used there.\n['Apportionment Rate'] = N:\n  DB('CST Activity Config', !GBL Period, !GBL Version, !CST Activity,\n     'Input', !CST Service Line, 'Driver Percentage Share');\n\n# Apportioned Amount: activity cost allocated to this Service Line.\n# At Activity='Input': direct costs are already split by Direct % — Amount IS the apportioned amount.\n# At specific activities: uses Settled Amount (post-A2A) when 2b has run, otherwise Amount (pre-A2A).\n# Same cross-cube flag pattern as Stage 1b — reads 'Stage 2b Complete' from Reconciliation cube.\n['Apportioned Amount'] = N:\n  IF( !CST Activity @= 'Input',\n      ['Amount'],\n      IF( DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version,\n             'RC04', 'Stage 2b Complete') > 0,\n          ['Settled Amount','CST Service Line':'Input'],\n          ['Amount'] )\n      * ['Apportionment Rate'] / 100 );\n\n# Per Unit: apportioned cost per unit of input volume for this Activity / Service Line.\n# Not applicable for direct costs (Activity='Input') — Input Volume = 0 → Per Unit = 0.\n['Per Unit'] = N:\n  IF(\n    DB('CST Activity Config', !GBL Period, !GBL Version, !CST Activity,\n       'Input', !CST Service Line, 'Input Volume') = 0,\n    0,\n    ['Apportioned Amount'] /\n    DB('CST Activity Config', !GBL Period, !GBL Version, !CST Activity,\n       'Input', !CST Service Line, 'Input Volume')\n  );\n\nFEEDERS;\n\n['Apportioned Amount'] => ['Per Unit'];\n\n# Activate Apportioned Amount when Settled Amount is written by Stage 2b Python solver.\n# Pinned at Service Line='Input' — mirrors how P2A Settled Amount is pinned at Activity='Input'.\n['Settled Amount','CST Service Line':'Input'] => ['Apportioned Amount'];\n\n# Feed Post Apportionment Amount in P&L Report cube.\n# Hardcode Account='7000' (Allocated Overhead) and Stage='Post Apportionment' —\n# neither dimension exists in A2SL so cannot use ! variables.\n['Apportioned Amount'] =>\n  DB('CST Profit and Loss Report', !GBL Period, !GBL Version,\n     'GBL Account':'7000', !CST Service Line, !GBL Cost Centre,\n     'Post Apportionment', 'Amount');\n\n# Feed RC05 in Reconciliation cube.\n# Activity='Input' has weight=0 in Total Activities — direct costs are intentionally excluded\n# from RC05 (which checks the indirect chain balance only).\n['Apportioned Amount'] =>\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC05', 'Input Total'),\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC05', 'Output Total'),\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC05', 'Variance'),\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC05', 'Variance Percent'),\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC05', 'Status');\n",
+      "hasRules": true,
+      "ramMb": null,
+      "views": [
+        [],
+        [
+          "Default",
+          "RPT Default",
+          "SYS Activity to Service Line"
+        ]
+      ],
+      "measures": [
+        "Amount",
+        "Settled Amount",
+        "Apportionment Rate",
+        "Apportioned Amount",
+        "Per Unit"
+      ],
+      "from": [
+        {
+          "n": "CST Account Config",
+          "t": "rule_calc"
+        },
+        {
+          "n": "CST Pool to Activity Apportionment",
+          "t": "rule_calc"
+        },
+        {
+          "n": "CST Activity Config",
+          "t": "rule_calc"
+        },
+        {
+          "n": "CST Apportionment Reconciliation",
+          "t": "rule_calc"
+        },
+        {
+          "n": "CST Profit and Loss Report",
+          "t": "rule_feeder"
         }
+      ],
+      "to": [
+        {
+          "n": "CST Account Config",
+          "t": "rule_feeder"
+        },
+        {
+          "n": "CST Activity Config",
+          "t": "rule_feeder"
+        },
+        {
+          "n": "CST Apportionment Reconciliation",
+          "t": "rule_calc"
+        },
+        {
+          "n": "CST Pool to Activity Apportionment",
+          "t": "rule_feeder"
+        },
+        {
+          "n": "CST Profit and Loss Report",
+          "t": "rule_calc"
+        }
+      ]
+    },
+    "CST Apportionment Reconciliation": {
+      "type": "recon",
+      "desc": "CST Apportionment Reconciliation — description not yet set.",
+      "descSource": "ai_inferred",
+      "dims": [
+        {
+          "n": "GBL Period",
+          "k": "global"
+        },
+        {
+          "n": "GBL Version",
+          "k": "global"
+        },
+        {
+          "n": "CST Reconciliation Check",
+          "k": "cst"
+        },
+        {
+          "n": "CST Apportionment Reconciliation Measure",
+          "k": "measure"
+        }
+      ],
+      "rules": {
+        "total": 161,
+        "lines": 97,
+        "comments": 33,
+        "dbRefs": 18,
+        "feeders": 1,
+        "ifs": 0,
+        "stet": 0,
+        "skip": 1
       },
-      {
-        "data": {
-          "id": "CST Pool Driver",
-          "label": "CST Pool Driver",
-          "type": "CST",
-          "color": "#8957e5",
-          "complexity": 0,
-          "desc": "CST Pool Driver \u2014 No description found.",
-          "dims": [
-            {
-              "n": "CST Cost Pool",
-              "k": "cst"
-            },
-            {
-              "n": "CST Activity",
-              "k": "cst"
-            },
-            {
-              "n": "GBL Period",
-              "k": "global"
-            },
-            {
-              "n": "GBL Version",
-              "k": "global"
-            },
-            {
-              "n": "CST Pool Driver Measure",
-              "k": "measure"
-            }
-          ]
+      "rulesText": "SKIPCHECK;\nFEEDSTRINGS;\n\n# ── RC00: GL Input Summary — Indirect vs Direct split ─────────────────────\n# Input Total  = total GL amount routed via indirect ABC chain (overhead accounts).\n# Output Total = total GL amount routed directly to Service Lines (direct cost accounts).\n# Variance     = 0 — not a balance check, purely informational.\n# Variance Pct = Direct as % of total processable (Indirect + Direct).\n\n['Input Total','CST Reconciliation Check':'RC00'] = N:\n  DB('CST Account Config', !GBL Period, !GBL Version,\n     'TOTAL OVERHEAD', 'GBL Cost Centre':'Total Cost Centres', 'Input', 'Input', 'Amount');\n\n['Output Total','CST Reconciliation Check':'RC00'] = N:\n  DB('CST Account Config', !GBL Period, !GBL Version,\n     'TOTAL DIRECT COSTS', 'GBL Cost Centre':'Total Cost Centres', 'Input', 'Input', 'Amount');\n\n['Variance','CST Reconciliation Check':'RC00'] = N: 0;\n\n['Variance Percent','CST Reconciliation Check':'RC00'] = N:\n  IF( ['Input Total'] + ['Output Total'] = 0, 0,\n      ['Output Total'] / (['Input Total'] + ['Output Total']) * 100 );\n\n['Status','CST Reconciliation Check':'RC00'] = S:\n  IF( ['Input Total'] = 0, 'NO DATA', 'INFO' );\n\n# ── RC01: Stage 1 — Account → Pool rate integrity ─────────────────────────\n# Input Total reads from Amount pinned at Cost Pool='Input'.\n# Output Total reads Apportioned Amount at Total Cost Pools consolidation.\n\n['Input Total','CST Reconciliation Check':'RC01'] = N:\n  DB('CST Account to Pool Apportionment', !GBL Period, !GBL Version,\n     'Input', 'Total Cost Centres', 'GBL Account':'TOTAL OVERHEAD', 'Amount');\n\n['Output Total','CST Reconciliation Check':'RC01'] = N:\n  DB('CST Account to Pool Apportionment', !GBL Period, !GBL Version,\n     'Total Cost Pools', 'Total Cost Centres', 'GBL Account':'TOTAL OVERHEAD', 'Apportioned Amount');\n\n# ── RC02: Stage 1b — Pool → Pool reciprocal balance ───────────────────────\n# Input Total  = total pool costs before Stage 1b redistribution (P2A Amount at Activity='Input').\n# Output Total = total pool costs after Stage 1b redistribution (P2A Settled Amount).\n# Balance check — Stage 1b only moves costs between pools, total must be preserved.\n\n# Input Total reads directly from A2P Apportioned Amount — same source as RC01 Output Total.\n# Avoids dependency on P2A Amount rule cell which requires additional feeder complexity.\n['Input Total','CST Reconciliation Check':'RC02'] = N:\n  DB('CST Account to Pool Apportionment', !GBL Period, !GBL Version,\n     'Total Cost Pools', 'GBL Cost Centre':'Total Cost Centres',\n     'GBL Account':'TOTAL OVERHEAD', 'Apportioned Amount');\n\n# Output Total reads P2A Settled Amount — written by Python after Stage 1b convergence.\n# Settled Amount is stored (not a rule cell) so no additional feeder needed.\n['Output Total','CST Reconciliation Check':'RC02'] = N:\n  DB('CST Pool to Activity Apportionment', !GBL Period, !GBL Version,\n     'CST Activity':'Input', 'Total Cost Pools', 'GBL Cost Centre':'Total Cost Centres', 'Settled Amount');\n\n# ── RC03: Stage 2 — Pool → Activity rate integrity ────────────────────────\n# Input Total reads from Amount pinned at Activity='Input'.\n# Output Total reads Apportioned Amount at Total Activities consolidation.\n\n['Input Total','CST Reconciliation Check':'RC03'] = N:\n  IF( DB('CST Pool to Activity Apportionment', !GBL Period, !GBL Version,\n         'Input', 'Total Cost Pools', 'Total Cost Centres', 'Settled Amount') <> 0,\n      DB('CST Pool to Activity Apportionment', !GBL Period, !GBL Version,\n         'Input', 'Total Cost Pools', 'Total Cost Centres', 'Settled Amount'),\n      DB('CST Pool to Activity Apportionment', !GBL Period, !GBL Version,\n         'Input', 'Total Cost Pools', 'Total Cost Centres', 'Amount') );\n\n['Output Total','CST Reconciliation Check':'RC03'] = N:\n  DB('CST Pool to Activity Apportionment', !GBL Period, !GBL Version,\n     'Total Activities', 'Total Cost Pools', 'Total Cost Centres', 'Apportioned Amount');\n\n# ── RC04: Stage 2b — Activity → Activity reciprocal balance ───────────────\n# Input Total  = total activity costs before Stage 2b (P2A Apportioned Amount).\n# Output Total = total activity costs after Stage 2b (A2SL Settled Amount).\n# Balance check — Stage 2b only moves costs between activities, total must be preserved.\n\n['Input Total','CST Reconciliation Check':'RC04'] = N:\n  DB('CST Pool to Activity Apportionment', !GBL Period, !GBL Version,\n     'Total Activities', 'Total Cost Pools', 'GBL Cost Centre':'Total Cost Centres', 'Apportioned Amount');\n\n['Output Total','CST Reconciliation Check':'RC04'] = N:\n  DB('CST Activity to Service Line Apportionment', !GBL Period, !GBL Version,\n     'CST Service Line':'Input', 'Total Activities', 'GBL Cost Centre':'Total Cost Centres', 'Settled Amount');\n\n# ── RC05: Stage 3 — Activity → Service Line rate integrity ────────────────\n# Input Total reads from Settled Amount (post-A2A) if Stage 2b has run, otherwise Amount.\n# Output Total reads Apportioned Amount at Total Service Lines consolidation.\n\n['Input Total','CST Reconciliation Check':'RC05'] = N:\n  IF( DB('CST Activity to Service Line Apportionment', !GBL Period, !GBL Version,\n         'Input', 'Total Activities', 'Total Cost Centres', 'Settled Amount') <> 0,\n      DB('CST Activity to Service Line Apportionment', !GBL Period, !GBL Version,\n         'Input', 'Total Activities', 'Total Cost Centres', 'Settled Amount'),\n      DB('CST Activity to Service Line Apportionment', !GBL Period, !GBL Version,\n         'Input', 'Total Activities', 'Total Cost Centres', 'Amount') );\n\n['Output Total','CST Reconciliation Check':'RC05'] = N:\n  DB('CST Activity to Service Line Apportionment', !GBL Period, !GBL Version,\n     'Total Service Lines', 'Total Activities', 'Total Cost Centres', 'Apportioned Amount');\n\n# ── RC06: End-to-End — GL Input = Service Line Output ─────────────────────\n# Input Total  = total overhead GL amount before any apportionment (RC00 Input Total).\n# Output Total = total allocated overhead landing on Service Lines (P&L Post Apportionment).\n# This is the definitive end-to-end check — everything in must equal everything out.\n\n['Input Total','CST Reconciliation Check':'RC06'] = N:\n  DB('CST Account Config', !GBL Period, !GBL Version,\n     'TOTAL OVERHEAD', 'GBL Cost Centre':'Total Cost Centres', 'Input', 'Input', 'Amount');\n\n['Output Total','CST Reconciliation Check':'RC06'] = N:\n  DB('CST Profit and Loss Report', !GBL Period, !GBL Version,\n     'GBL Account':'7000', 'CST Service Line':'Total Service Lines',\n     'GBL Cost Centre':'Total Cost Centres', 'Post Apportionment', 'Amount');\n\n# ── Variance and Variance Percent — RC checks only ───────────────────────\n# VAL checks have no Variance — those are written by Python.\n\n['Variance','CST Reconciliation Check':'RC01'] = N:\n  ['Output Total'] - ['Input Total'];\n['Variance','CST Reconciliation Check':'RC02'] = N:\n  ['Output Total'] - ['Input Total'];\n['Variance','CST Reconciliation Check':'RC03'] = N:\n  ['Output Total'] - ['Input Total'];\n['Variance','CST Reconciliation Check':'RC04'] = N:\n  ['Output Total'] - ['Input Total'];\n['Variance','CST Reconciliation Check':'RC05'] = N:\n  ['Output Total'] - ['Input Total'];\n['Variance','CST Reconciliation Check':'RC06'] = N:\n  ['Output Total'] - ['Input Total'];\n\n['Variance Percent','CST Reconciliation Check':'RC01'] = N:\n  IF( ['Input Total'] = 0, 0, ['Variance'] / ['Input Total'] * 100 );\n['Variance Percent','CST Reconciliation Check':'RC02'] = N:\n  IF( ['Input Total'] = 0, 0, ['Variance'] / ['Input Total'] * 100 );\n['Variance Percent','CST Reconciliation Check':'RC03'] = N:\n  IF( ['Input Total'] = 0, 0, ['Variance'] / ['Input Total'] * 100 );\n['Variance Percent','CST Reconciliation Check':'RC04'] = N:\n  IF( ['Input Total'] = 0, 0, ['Variance'] / ['Input Total'] * 100 );\n['Variance Percent','CST Reconciliation Check':'RC05'] = N:\n  IF( ['Input Total'] = 0, 0, ['Variance'] / ['Input Total'] * 100 );\n['Variance Percent','CST Reconciliation Check':'RC06'] = N:\n  IF( ['Input Total'] = 0, 0, ['Variance'] / ['Input Total'] * 100 );\n\n# ── Status — RC checks only — VAL checks written by Python ───────────────\n\n['Status','CST Reconciliation Check':'RC01'] = S:\n  IF( ['Input Total'] = 0, 'NO DATA', IF( ABS( ['Variance'] ) <= 0.01, 'PASS', 'FAIL' ) );\n['Status','CST Reconciliation Check':'RC02'] = S:\n  IF( ['Input Total'] = 0, 'NO DATA', IF( ABS( ['Variance'] ) <= 1, 'PASS', 'FAIL' ) );\n['Status','CST Reconciliation Check':'RC03'] = S:\n  IF( ['Input Total'] = 0, 'NO DATA', IF( ABS( ['Variance'] ) <= 0.01, 'PASS', 'FAIL' ) );\n['Status','CST Reconciliation Check':'RC04'] = S:\n  IF( ['Input Total'] = 0, 'NO DATA', IF( ABS( ['Variance'] ) <= 0.01, 'PASS', 'FAIL' ) );\n['Status','CST Reconciliation Check':'RC05'] = S:\n  IF( ['Input Total'] = 0, 'NO DATA', IF( ABS( ['Variance'] ) <= 0.01, 'PASS', 'FAIL' ) );\n['Status','CST Reconciliation Check':'RC06'] = S:\n  IF( ['Input Total'] = 0, 'NO DATA', IF( ABS( ['Variance'] ) <= 1, 'PASS', 'FAIL' ) );\n\nFEEDERS;\n",
+      "hasRules": true,
+      "ramMb": null,
+      "views": [
+        [],
+        [
+          "Default",
+          "RPT Default",
+          "RPT GL Input Summary"
+        ]
+      ],
+      "measures": [
+        "Input Total",
+        "Output Total",
+        "Variance",
+        "Variance Percent",
+        "Status",
+        "Message",
+        "Stage 1b Complete",
+        "Stage 2b Complete"
+      ],
+      "from": [
+        {
+          "n": "CST Account Config",
+          "t": "rule_calc"
+        },
+        {
+          "n": "CST Account to Pool Apportionment",
+          "t": "rule_calc"
+        },
+        {
+          "n": "CST Pool to Activity Apportionment",
+          "t": "rule_calc"
+        },
+        {
+          "n": "CST Activity to Service Line Apportionment",
+          "t": "rule_calc"
+        },
+        {
+          "n": "CST Profit and Loss Report",
+          "t": "rule_calc"
+        },
+        {
+          "n": "ETL — Load GL",
+          "t": "python"
+        },
+        {
+          "n": "ETL — Load Drivers",
+          "t": "python"
+        },
+        {
+          "n": "ETL — Run Apportionment",
+          "t": "python"
         }
+      ],
+      "to": [
+        {
+          "n": "CST Account Config",
+          "t": "rule_feeder"
+        },
+        {
+          "n": "CST Account to Pool Apportionment",
+          "t": "rule_feeder"
+        },
+        {
+          "n": "CST Activity to Service Line Apportionment",
+          "t": "rule_calc"
+        },
+        {
+          "n": "CST Pool to Activity Apportionment",
+          "t": "rule_calc"
+        },
+        {
+          "n": "CST Profit and Loss Report",
+          "t": "rule_feeder"
+        },
+        {
+          "n": "ETL — Run Apportionment",
+          "t": "python"
+        }
+      ]
+    },
+    "CST ETL Control": {
+      "type": "input",
+      "desc": "CST ETL Control — description not yet set.",
+      "descSource": "ai_inferred",
+      "dims": [
+        {
+          "n": "CST ETL Job",
+          "k": "cst"
+        },
+        {
+          "n": "CST ETL Control Measure",
+          "k": "measure"
+        }
+      ],
+      "rules": {
+        "total": 0,
+        "lines": 0,
+        "comments": 0,
+        "dbRefs": 0,
+        "feeders": 0,
+        "ifs": 0,
+        "stet": 0,
+        "skip": 0
       },
-      {
-        "data": {
-          "id": "CST Profit and Loss Report",
-          "label": "CST Profit and Loss Report",
-          "type": "CST",
-          "color": "#8957e5",
-          "complexity": 0,
-          "desc": "CST Profit and Loss Report \u2014 No description found.",
-          "dims": [
-            {
-              "n": "GBL Account",
-              "k": "global"
-            },
-            {
-              "n": "CST Service Line",
-              "k": "cst"
-            },
-            {
-              "n": "GBL Period",
-              "k": "global"
-            },
-            {
-              "n": "GBL Version",
-              "k": "global"
-            },
-            {
-              "n": "CST Allocation Stage",
-              "k": "cst"
-            },
-            {
-              "n": "CST Profit and Loss Report Measure",
-              "k": "measure"
-            }
-          ]
+      "rulesText": "",
+      "hasRules": false,
+      "ramMb": null,
+      "views": [
+        [],
+        [
+          "Default",
+          "RPT Job Status"
+        ]
+      ],
+      "measures": [
+        "Status",
+        "Period",
+        "Version",
+        "Force",
+        "Max Iter",
+        "Message",
+        "Requested At",
+        "Completed At"
+      ],
+      "from": [
+        {
+          "n": "ETL — Poller",
+          "t": "python"
+        },
+        {
+          "n": "CST Load Drivers",
+          "t": "ti"
+        },
+        {
+          "n": "CST Load GL",
+          "t": "ti"
+        },
+        {
+          "n": "CST Run Apportionment",
+          "t": "ti"
         }
+      ],
+      "to": [
+        {
+          "n": "ETL — Poller",
+          "t": "python"
+        }
+      ]
+    },
+    "CST Pool Config": {
+      "type": "allocation",
+      "desc": "CST Pool Config — description not yet set.",
+      "descSource": "ai_inferred",
+      "dims": [
+        {
+          "n": "GBL Period",
+          "k": "global"
+        },
+        {
+          "n": "GBL Version",
+          "k": "global"
+        },
+        {
+          "n": "CST Cost Pool",
+          "k": "cst"
+        },
+        {
+          "n": "CST Driver",
+          "k": "cst"
+        },
+        {
+          "n": "CST Activity",
+          "k": "cst"
+        },
+        {
+          "n": "CST Pool Config Measure",
+          "k": "measure"
+        }
+      ],
+      "rules": {
+        "total": 39,
+        "lines": 26,
+        "comments": 8,
+        "dbRefs": 8,
+        "feeders": 1,
+        "ifs": 0,
+        "stet": 0,
+        "skip": 1
       },
-      {
-        "data": {
-          "id": "CST Service Line Cost",
-          "label": "CST Service Line Cost",
-          "type": "CST",
-          "color": "#8957e5",
-          "complexity": 0,
-          "desc": "CST Service Line Cost \u2014 No description found.",
-          "dims": [
-            {
-              "n": "CST Service Line",
-              "k": "cst"
-            },
-            {
-              "n": "CST Activity",
-              "k": "cst"
-            },
-            {
-              "n": "GBL Period",
-              "k": "global"
-            },
-            {
-              "n": "GBL Version",
-              "k": "global"
-            },
-            {
-              "n": "CST Service Line Cost Measure",
-              "k": "measure"
-            }
-          ]
+      "rulesText": "SKIPCHECK;\nFEEDSTRINGS;\n\n# Driver Percentage Share per Cost Pool → Activity.\n# Basis string (e.g. BEDDAYS) stored at (pool, Input, Input, 'Pool to Activity Basis').\n# Activity driver volumes stored in CST Activity Config at (activity, [basis], Input, 'Driver Value').\n# Only fires where CST Driver = 'Input' (the pct split dimension).\n['Driver Percentage Share'] = N:\n  IF( !CST Driver @<> 'Input', CONTINUE,\n    IF(\n      DB('CST Activity Config',\n         !GBL Period, !GBL Version, !CST Activity,\n         DB('CST Pool Config', !GBL Period, !GBL Version, !CST Cost Pool, 'Input', 'Input', 'Pool to Activity Basis'),\n         'Input', 'Driver Value') = 0,\n      0,\n      DB('CST Activity Config',\n         !GBL Period, !GBL Version, !CST Activity,\n         DB('CST Pool Config', !GBL Period, !GBL Version, !CST Cost Pool, 'Input', 'Input', 'Pool to Activity Basis'),\n         'Input', 'Driver Value') /\n      DB('CST Activity Config',\n         !GBL Period, !GBL Version, 'Total Activities',\n         DB('CST Pool Config', !GBL Period, !GBL Version, !CST Cost Pool, 'Input', 'Input', 'Pool to Activity Basis'),\n         'Input', 'Driver Value') * 100\n    )\n  );\n\nFEEDERS;\n\n# Feed Driver Percentage Share — fired by stored Basis string at (pool, Input, Input).\n# Uses 'Total Activities' so TM1 evaluates the rule at every leaf activity for this pool.\n# Previous version used !CST Pool Config Measure for the Activity arg — invalid element, had no effect.\n['CST Driver':'Input','CST Activity':'Input','CST Pool Config Measure':'Pool to Activity Basis'] =>\n  DB('CST Pool Config', !GBL Period, !GBL Version, !CST Cost Pool, 'Input', 'Total Activities', 'Driver Percentage Share');\n\n# Feed Apportionment Rate in Stage 2 — Cost Centre not in Pool Config so use Total Cost Centres consolidation.\n['CST Driver':'Input','CST Pool Config Measure':'Driver Percentage Share'] =>\n  DB('CST Pool to Activity Apportionment',\n     !GBL Period, !GBL Version, !CST Activity, !CST Cost Pool, 'GBL Cost Centre':'Total Cost Centres', 'Apportionment Rate');\n",
+      "hasRules": true,
+      "ramMb": null,
+      "views": [
+        [],
+        [
+          "Default",
+          "RPT Default",
+          "SYS Pool Drivers to Activity"
+        ]
+      ],
+      "measures": [
+        "Pool to Activity Basis",
+        "Driver Value",
+        "Driver Percentage Share"
+      ],
+      "from": [
+        {
+          "n": "CST Activity Config",
+          "t": "rule_calc"
+        },
+        {
+          "n": "CST Pool to Activity Apportionment",
+          "t": "rule_feeder"
+        },
+        {
+          "n": "ETL — Load Drivers",
+          "t": "python"
         }
+      ],
+      "to": [
+        {
+          "n": "CST Pool to Activity Apportionment",
+          "t": "rule_calc"
+        },
+        {
+          "n": "ETL — Load Drivers",
+          "t": "python"
+        }
+      ]
+    },
+    "CST Pool to Activity Apportionment": {
+      "type": "allocation",
+      "desc": "CST Pool to Activity Apportionment — description not yet set.",
+      "descSource": "ai_inferred",
+      "dims": [
+        {
+          "n": "GBL Period",
+          "k": "global"
+        },
+        {
+          "n": "GBL Version",
+          "k": "global"
+        },
+        {
+          "n": "CST Activity",
+          "k": "cst"
+        },
+        {
+          "n": "CST Cost Pool",
+          "k": "cst"
+        },
+        {
+          "n": "GBL Cost Centre",
+          "k": "global"
+        },
+        {
+          "n": "CST Pool to Activity Apportionment Measure",
+          "k": "measure"
+        }
+      ],
+      "rules": {
+        "total": 54,
+        "lines": 27,
+        "comments": 19,
+        "dbRefs": 11,
+        "feeders": 1,
+        "ifs": 0,
+        "stet": 0,
+        "skip": 2
       },
-      {
-        "data": {
-          "id": "GBL Assumptions",
-          "label": "GBL Assumptions",
-          "type": "GBL",
-          "color": "#388bfd",
-          "complexity": 0,
-          "desc": "GBL Assumptions \u2014 No description found.",
-          "dims": [
-            {
-              "n": "GBL Version",
-              "k": "global"
-            },
-            {
-              "n": "GBL Period",
-              "k": "global"
-            },
-            {
-              "n": "GBL Assumptions Measure",
-              "k": "global"
-            }
-          ]
+      "rulesText": "SKIPCHECK;\nFEEDSTRINGS;\n\n# Amount: total cost in this Cost Pool after Stage 1 (Account → Pool).\n# Pinned to Activity='Input' — not a per-activity value.\n# Uses TOTAL OVERHEAD consolidation (overhead accounts, weight=1) — avoids\n# sign inversion from NET PROFIT which carries overhead at weight=-1.\n# Value configured in config.py CST_CONFIG['overhead_consolidation'].\n['Amount','CST Activity':'CST Activity':'Input'] = N:\n  DB('CST Account to Pool Apportionment', !GBL Period, !GBL Version, !CST Cost Pool,\n     !GBL Cost Centre, 'TOTAL OVERHEAD', 'Apportioned Amount');\n\n# Apportionment Rate: driver percentage share for this Cost Pool → Activity.\n# Computed by Pool Config rule at (pool, Input, activity).\n['Apportionment Rate'] = N:\n  DB('CST Pool Config', !GBL Period, !GBL Version, !CST Cost Pool,\n     'Input', !CST Activity, 'Driver Percentage Share');\n\n# Apportioned Amount: pool cost allocated to this Activity.\n# Uses Settled Amount (post-P2P) when 1b has run, otherwise falls back to Amount (pre-P2P).\n# Fully-redistributed pools legitimately have Settled Amount = 0 (all costs moved to other\n# pools), so we cannot check per-pool SA or Total Cost Pools SA (self-referential DB() on\n# a consolidation in the same cube returns 0 during N: rule evaluation).\n# Instead we read 'Stage 1b Complete' from the Reconciliation cube — Python writes 1 there\n# after Stage 1b converges, providing a clean cross-cube flag that avoids self-reference.\n['Apportioned Amount'] = N:\n  IF( DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version,\n         'RC03', 'Stage 1b Complete') > 0,\n      ['Settled Amount','CST Activity':'Input'],\n      ['Amount','CST Activity':'Input'] )\n  * ['Apportionment Rate'] / 100;\n\nFEEDERS;\n\n# Activate Apportioned Amount — fired when Apportionment Rate is non-zero.\n# Without this, SKIPCHECK never evaluates ['Apportioned Amount'] even if Amount and SA exist.\n['Apportionment Rate'] => ['Apportioned Amount'];\n\n# Chain to Stage 3: feed Apportioned Amount and Amount (pinned at Service Line='Input').\n['Apportioned Amount'] =>\n  DB('CST Activity to Service Line Apportionment', !GBL Period, !GBL Version,\n     'Total Service Lines', !CST Activity, 'Total Cost Centres', 'Apportioned Amount'),\n  DB('CST Activity to Service Line Apportionment', !GBL Period, !GBL Version,\n     'Input', !CST Activity, !GBL Cost Centre, 'Amount');\n\n# Feed RC03 in Reconciliation cube.\n# RC02 is fed from A2P (cst_account_to_pool_apportionment.yaml) — not here.\n['Apportioned Amount'] =>\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC03', 'Input Total'),\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC03', 'Output Total'),\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC03', 'Variance'),\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC03', 'Variance Percent'),\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC03', 'Status');\n",
+      "hasRules": true,
+      "ramMb": null,
+      "views": [
+        [],
+        [
+          "Default",
+          "RPT Default",
+          "SYS Pool to Activity",
+          "SYS Stage 2b Amount and Settled Amount Apportioned"
+        ]
+      ],
+      "measures": [
+        "Amount",
+        "Settled Amount",
+        "Apportionment Rate",
+        "Apportioned Amount"
+      ],
+      "from": [
+        {
+          "n": "CST Account to Pool Apportionment",
+          "t": "rule_calc"
+        },
+        {
+          "n": "CST Pool Config",
+          "t": "rule_calc"
+        },
+        {
+          "n": "CST Apportionment Reconciliation",
+          "t": "rule_calc"
+        },
+        {
+          "n": "CST Activity to Service Line Apportionment",
+          "t": "rule_feeder"
+        },
+        {
+          "n": "ETL — Run Apportionment",
+          "t": "python"
         }
-      }
-    ],
-    "edges": []
+      ],
+      "to": [
+        {
+          "n": "CST Account to Pool Apportionment",
+          "t": "rule_feeder"
+        },
+        {
+          "n": "CST Activity to Service Line Apportionment",
+          "t": "rule_calc"
+        },
+        {
+          "n": "CST Apportionment Reconciliation",
+          "t": "rule_calc"
+        },
+        {
+          "n": "CST Pool Config",
+          "t": "rule_feeder"
+        }
+      ]
+    },
+    "CST Pool to Pool Config": {
+      "type": "input",
+      "desc": "CST Pool to Pool Config — description not yet set.",
+      "descSource": "ai_inferred",
+      "dims": [
+        {
+          "n": "GBL Period",
+          "k": "global"
+        },
+        {
+          "n": "GBL Version",
+          "k": "global"
+        },
+        {
+          "n": "CST Cost Pool",
+          "k": "cst"
+        },
+        {
+          "n": "CST Cost Pool Dest",
+          "k": "cst"
+        },
+        {
+          "n": "GBL Cost Centre",
+          "k": "global"
+        },
+        {
+          "n": "CST Pool to Pool Config Measure",
+          "k": "measure"
+        }
+      ],
+      "rules": {
+        "total": 0,
+        "lines": 0,
+        "comments": 0,
+        "dbRefs": 0,
+        "feeders": 0,
+        "ifs": 0,
+        "stet": 0,
+        "skip": 0
+      },
+      "rulesText": "",
+      "hasRules": false,
+      "ramMb": null,
+      "views": [
+        [],
+        [
+          "Default",
+          "RPT Default",
+          "RPT Driver Value By Cost Centre",
+          "RPT Pool to Pool Active",
+          "SYS Driver Value By Cost Centre",
+          "SYS Pool to Pool Active",
+          "SYS Pool to Pool Driver"
+        ]
+      ],
+      "measures": [
+        "Active",
+        "Driver Value",
+        "Driver Description",
+        "Driver Percentage Share",
+        "Apportioned Amount",
+        "Iteration Number"
+      ],
+      "from": [
+        {
+          "n": "ETL — Load Drivers",
+          "t": "python"
+        },
+        {
+          "n": "ETL — Run Apportionment",
+          "t": "python"
+        }
+      ],
+      "to": [
+        {
+          "n": "ETL — Run Apportionment",
+          "t": "python"
+        }
+      ]
+    },
+    "CST Profit and Loss Report": {
+      "type": "report",
+      "desc": "CST Profit and Loss Report — description not yet set.",
+      "descSource": "ai_inferred",
+      "dims": [
+        {
+          "n": "GBL Period",
+          "k": "global"
+        },
+        {
+          "n": "GBL Version",
+          "k": "global"
+        },
+        {
+          "n": "GBL Account",
+          "k": "global"
+        },
+        {
+          "n": "CST Service Line",
+          "k": "cst"
+        },
+        {
+          "n": "GBL Cost Centre",
+          "k": "global"
+        },
+        {
+          "n": "CST Apportionment Stage",
+          "k": "cst"
+        },
+        {
+          "n": "CST Profit and Loss Report Measure",
+          "k": "measure"
+        }
+      ],
+      "rules": {
+        "total": 35,
+        "lines": 15,
+        "comments": 14,
+        "dbRefs": 7,
+        "feeders": 2,
+        "ifs": 0,
+        "stet": 0,
+        "skip": 1
+      },
+      "rulesText": "SKIPCHECK;\nFEEDSTRINGS;\n\n# ── Pre Apportionment ─────────────────────────────────────────────────────\n# Overhead GL amounts before the ABC chain redistributes them to Service Lines.\n# Service Line pinned to 'Input' — SL not known pre-apportionment.\n# Only Indirect accounts produce a value — Direct/Excluded/Revenue return 0\n# because Account Config Amount is only loaded for Indirect accounts.\n['Amount','CST Apportionment Stage':'Pre Apportionment','CST Service Line':'Input'] = N:\n  DB('CST Account Config', !GBL Period, !GBL Version,\n     !GBL Account, !GBL Cost Centre, 'Input', 'Input', 'Amount');\n\n# ── Post Apportionment ────────────────────────────────────────────────────\n# Allocated overhead landing on each Service Line after the full ABC chain.\n# Pinned to Account='7000' (Allocated Overhead) — Pool/Activity detail\n# available via drill-through to CST Activity to Service Line Apportionment.\n# Total Activities consolidation covers both indirect (A01-A11) and direct (Activity='Input').\n['Amount','CST Apportionment Stage':'Post Apportionment','GBL Account':'7000'] = N:\n  DB('CST Activity to Service Line Apportionment', !GBL Period, !GBL Version,\n     !CST Service Line, 'Total Activities', !GBL Cost Centre, 'Apportioned Amount');\n\nFEEDERS;\n\n# No feeders for Amount — those live in source cube rule files:\n#   Pre Apportionment  → cst_account_config.yaml (Account Config Amount feeder)\n#   Post Apportionment → cst_activity_to_service_line_apportionment.yaml (Apportioned Amount feeder)\n\n# Feed RC06 in Reconciliation cube — end-to-end GL Input = Service Line Output check.\n['Amount','CST Apportionment Stage':'Post Apportionment','GBL Account':'7000'] =>\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC06', 'Input Total'),\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC06', 'Output Total'),\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC06', 'Variance'),\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC06', 'Variance Percent'),\n  DB('CST Apportionment Reconciliation', !GBL Period, !GBL Version, 'RC06', 'Status');\n",
+      "hasRules": true,
+      "ramMb": null,
+      "views": [
+        [],
+        [
+          "Default",
+          "RPT Default",
+          "SYS CC to SL Apportionments Budget",
+          "SYS Default",
+          "SYS PnL Budget"
+        ]
+      ],
+      "measures": [
+        "Amount",
+        "Variance to Budget",
+        "Variance Percent",
+        "ABC vs Traditional Variance"
+      ],
+      "from": [
+        {
+          "n": "CST Account Config",
+          "t": "rule_calc"
+        },
+        {
+          "n": "CST Activity to Service Line Apportionment",
+          "t": "rule_calc"
+        },
+        {
+          "n": "CST Apportionment Reconciliation",
+          "t": "rule_feeder"
+        }
+      ],
+      "to": [
+        {
+          "n": "CST Account Config",
+          "t": "rule_feeder"
+        },
+        {
+          "n": "CST Activity to Service Line Apportionment",
+          "t": "rule_feeder"
+        },
+        {
+          "n": "CST Apportionment Reconciliation",
+          "t": "rule_calc"
+        }
+      ]
+    },
+    "GBL Assumptions": {
+      "type": "input",
+      "desc": "GBL Assumptions — description not yet set.",
+      "descSource": "ai_inferred",
+      "dims": [
+        {
+          "n": "GBL Version",
+          "k": "global"
+        },
+        {
+          "n": "GBL Period",
+          "k": "global"
+        },
+        {
+          "n": "GBL Assumptions Measure",
+          "k": "global"
+        }
+      ],
+      "rules": {
+        "total": 0,
+        "lines": 0,
+        "comments": 0,
+        "dbRefs": 0,
+        "feeders": 0,
+        "ifs": 0,
+        "stet": 0,
+        "skip": 0
+      },
+      "rulesText": "",
+      "hasRules": false,
+      "ramMb": null,
+      "views": [
+        [],
+        [
+          "RPT Test NATIVE",
+          "RPT Test MDX"
+        ]
+      ],
+      "measures": [],
+      "from": [],
+      "to": []
+    },
+    "ETL — Load GL": {
+      "type": "python",
+      "desc": "Python ETL script: load_gl.py",
+      "descSource": "auto",
+      "dims": [],
+      "rules": {
+        "total": 0,
+        "lines": 0,
+        "comments": 0,
+        "dbRefs": 0,
+        "feeders": 0,
+        "ifs": 0,
+        "stet": 0,
+        "skip": 0
+      },
+      "ramMb": null,
+      "from": [
+        {
+          "n": "ETL — Poller",
+          "t": "python_trigger"
+        }
+      ],
+      "to": [
+        {
+          "n": "CST Account Config",
+          "t": "python"
+        },
+        {
+          "n": "CST Apportionment Reconciliation",
+          "t": "python"
+        }
+      ],
+      "scriptPath": "/home/jdlove/apps/tm1_apportionment/etl/load_gl.py"
+    },
+    "ETL — Load Drivers": {
+      "type": "python",
+      "desc": "Python ETL script: load_drivers.py",
+      "descSource": "auto",
+      "dims": [],
+      "rules": {
+        "total": 0,
+        "lines": 0,
+        "comments": 0,
+        "dbRefs": 0,
+        "feeders": 0,
+        "ifs": 0,
+        "stet": 0,
+        "skip": 0
+      },
+      "ramMb": null,
+      "from": [
+        {
+          "n": "CST Pool Config",
+          "t": "python"
+        },
+        {
+          "n": "ETL — Poller",
+          "t": "python_trigger"
+        }
+      ],
+      "to": [
+        {
+          "n": "CST Activity Config",
+          "t": "python"
+        },
+        {
+          "n": "CST Activity to Activity Config",
+          "t": "python"
+        },
+        {
+          "n": "CST Apportionment Reconciliation",
+          "t": "python"
+        },
+        {
+          "n": "CST Pool Config",
+          "t": "python"
+        },
+        {
+          "n": "CST Pool to Pool Config",
+          "t": "python"
+        }
+      ],
+      "scriptPath": "/home/jdlove/apps/tm1_apportionment/etl/load_drivers.py"
+    },
+    "ETL — Run Apportionment": {
+      "type": "python",
+      "desc": "Python ETL script: run_apportionment.py",
+      "descSource": "auto",
+      "dims": [],
+      "rules": {
+        "total": 0,
+        "lines": 0,
+        "comments": 0,
+        "dbRefs": 0,
+        "feeders": 0,
+        "ifs": 0,
+        "stet": 0,
+        "skip": 0
+      },
+      "ramMb": null,
+      "from": [
+        {
+          "n": "CST Account to Pool Apportionment",
+          "t": "python"
+        },
+        {
+          "n": "CST Apportionment Reconciliation",
+          "t": "python"
+        },
+        {
+          "n": "CST Pool to Pool Config",
+          "t": "python"
+        },
+        {
+          "n": "ETL — Poller",
+          "t": "python_trigger"
+        }
+      ],
+      "to": [
+        {
+          "n": "CST Apportionment Reconciliation",
+          "t": "python"
+        },
+        {
+          "n": "CST Pool to Activity Apportionment",
+          "t": "python"
+        },
+        {
+          "n": "CST Pool to Pool Config",
+          "t": "python"
+        }
+      ],
+      "scriptPath": "/home/jdlove/apps/tm1_apportionment/etl/run_apportionment.py"
+    },
+    "ETL — Poller": {
+      "type": "python",
+      "desc": "Python ETL script: poller.py",
+      "descSource": "auto",
+      "dims": [],
+      "rules": {
+        "total": 0,
+        "lines": 0,
+        "comments": 0,
+        "dbRefs": 0,
+        "feeders": 0,
+        "ifs": 0,
+        "stet": 0,
+        "skip": 0
+      },
+      "ramMb": null,
+      "from": [
+        {
+          "n": "CST ETL Control",
+          "t": "python"
+        }
+      ],
+      "to": [
+        {
+          "n": "CST ETL Control",
+          "t": "python"
+        },
+        {
+          "n": "ETL — Load GL",
+          "t": "python_trigger"
+        },
+        {
+          "n": "ETL — Load Drivers",
+          "t": "python_trigger"
+        },
+        {
+          "n": "ETL — Run Apportionment",
+          "t": "python_trigger"
+        }
+      ],
+      "scriptPath": "/home/jdlove/apps/tm1_apportionment/etl/poller.py"
+    },
+    "CST Load Drivers": {
+      "type": "ti",
+      "desc": "TI Process: CST Load Drivers",
+      "descSource": "auto",
+      "dims": [],
+      "rules": {
+        "total": 0,
+        "lines": 0,
+        "comments": 0,
+        "dbRefs": 0,
+        "feeders": 0,
+        "ifs": 0,
+        "stet": 0,
+        "skip": 0
+      },
+      "rulesText": "",
+      "hasRules": false,
+      "ramMb": null,
+      "views": [],
+      "tiCode": {
+        "prolog": "#****Begin: Generated Statements***\r\n#****End: Generated Statements****\r\n# =============================================\r\n# CST Load Drivers - TI Wrapper\r\n# \r\n# This TI only signals the external Python poller.\r\n# It does NOT run the Python script directly.\r\n#\r\n# Period Handling Rules:\r\n#   - If pPeriod is blank     → Process ALL periods from GBL Version (Start Period to End Period)\r\n#   - If pPeriod is specified → Process ONLY that single month (YYYY-MM format)\r\n#\r\n# This design is dynamic and controlled by Version attributes in TM1.\r\n# Perfect for:\r\n#   - Actuals → usually 1 month\r\n#   - Budget  → full year\r\n#   - Forecast → custom range set on the Version\r\n#\r\n# Polling flow:\r\n# 1. This process writes 'REQUESTED' to CST ETL Control cube\r\n# 2. poller.py sees it and runs etl/load_drivers.py\r\n# 3. Poller updates status to RUNNING / COMPLETED / FAILED\r\n#\r\n# V12 safe - no ExecuteCommand\r\n# =============================================\r\n\r\nsCube = 'CST ETL Control';\r\nsJob  = 'Load Drivers';\r\n\r\n# Clear previous status\r\nCellPutS( '', sCube, sJob, 'Status' );\r\nCellPutS( '', sCube, sJob, 'Message' );\r\n\r\n# Write the request\r\nCellPutS( pPeriod,  sCube, sJob, 'Period' );\r\nCellPutS( pVersion, sCube, sJob, 'Version' );\r\nCellPutS( 'REQUESTED', sCube, sJob, 'Status' );\r\n",
+        "metadata": "#****Begin: Generated Statements***\r\n#****End: Generated Statements****\r\n",
+        "data": "#****Begin: Generated Statements***\r\n#****End: Generated Statements****\r\n",
+        "epilog": "#****Begin: Generated Statements***\r\n#****End: Generated Statements****\r\n"
+      },
+      "from": [],
+      "to": [
+        {
+          "n": "CST ETL Control",
+          "t": "ti"
+        }
+      ]
+    },
+    "CST Load GL": {
+      "type": "ti",
+      "desc": "TI Process: CST Load GL",
+      "descSource": "auto",
+      "dims": [],
+      "rules": {
+        "total": 0,
+        "lines": 0,
+        "comments": 0,
+        "dbRefs": 0,
+        "feeders": 0,
+        "ifs": 0,
+        "stet": 0,
+        "skip": 0
+      },
+      "rulesText": "",
+      "hasRules": false,
+      "ramMb": null,
+      "views": [],
+      "tiCode": {
+        "prolog": "#****Begin: Generated Statements***\r\n#****End: Generated Statements****\r\n# =============================================\r\n# CST Load GL - TI Wrapper\r\n# \r\n# This TI only signals the external Python poller.\r\n# It does NOT run the Python script directly.\r\n#\r\n# Period Handling Rules:\r\n#   - If pPeriod is blank     → Process ALL periods from GBL Version (Start Period to End Period)\r\n#   - If pPeriod is specified → Process ONLY that single month (YYYY-MM format)\r\n#\r\n# This design is dynamic and controlled by Version attributes in TM1.\r\n# Perfect for:\r\n#   - Actuals → usually 1 month\r\n#   - Budget  → full year\r\n#   - Forecast → custom range set on the Version\r\n#\r\n# Polling flow:\r\n# 1. This process writes 'REQUESTED' to CST ETL Control cube\r\n# 2. poller.py sees it and runs etl/load_gl.py\r\n# 3. Poller updates status to RUNNING / COMPLETED / FAILED\r\n#\r\n# V12 safe - no ExecuteCommand\r\n# =============================================\r\n\r\nsCube = 'CST ETL Control';\r\nsJob  = 'Load GL';\r\n\r\n# Clear previous status\r\nCellPutS( '', sCube, sJob, 'Status' );\r\nCellPutS( '', sCube, sJob, 'Message' );\r\n\r\n# Write the request\r\nCellPutS( pPeriod,  sCube, sJob, 'Period' );\r\nCellPutS( pVersion, sCube, sJob, 'Version' );\r\nCellPutS( 'REQUESTED', sCube, sJob, 'Status' );\r\n",
+        "metadata": "#****Begin: Generated Statements***\r\n#****End: Generated Statements****\r\n",
+        "data": "#****Begin: Generated Statements***\r\n#****End: Generated Statements****\r\n",
+        "epilog": "#****Begin: Generated Statements***\r\n#****End: Generated Statements****\r\n"
+      },
+      "from": [],
+      "to": [
+        {
+          "n": "CST ETL Control",
+          "t": "ti"
+        }
+      ]
+    },
+    "CST Run Apportionment": {
+      "type": "ti",
+      "desc": "TI Process: CST Run Apportionment",
+      "descSource": "auto",
+      "dims": [],
+      "rules": {
+        "total": 0,
+        "lines": 0,
+        "comments": 0,
+        "dbRefs": 0,
+        "feeders": 0,
+        "ifs": 0,
+        "stet": 0,
+        "skip": 0
+      },
+      "rulesText": "",
+      "hasRules": false,
+      "ramMb": null,
+      "views": [],
+      "tiCode": {
+        "prolog": "#****Begin: Generated Statements***\r\n#****End: Generated Statements****\r\n# =============================================\r\n# CST Run Apportionment - TI Wrapper\r\n# \r\n# This TI only signals the external Python poller.\r\n# It does NOT run the Python script directly.\r\n#\r\n# Period Handling Rules:\r\n#   - If pPeriod is blank     → Process ALL periods from GBL Version (Start Period to End Period)\r\n#   - If pPeriod is specified → Process ONLY that single month (YYYY-MM format)\r\n#\r\n# This design is dynamic and controlled by Version attributes in TM1.\r\n# Perfect for:\r\n#   - Actuals → usually 1 month\r\n#   - Budget  → full year\r\n#   - Forecast → custom range set on the Version\r\n#\r\n# Polling flow:\r\n# 1. This process writes 'REQUESTED' to CST ETL Control cube\r\n# 2. poller.py sees it and runs etl/run_apportionment.py\r\n# 3. Poller updates status to RUNNING / COMPLETED / FAILED\r\n#\r\n# V12 safe - no ExecuteCommand\r\n# =============================================\r\n\r\nsCube = 'CST ETL Control';\r\nsJob  = 'Run Apportionment';\r\n\r\n# Clear previous status\r\nCellPutS( '', sCube, sJob, 'Status' );\r\nCellPutS( '', sCube, sJob, 'Message' );\r\n\r\n# Write the request\r\nCellPutS( pPeriod,  sCube, sJob, 'Period' );\r\nCellPutS( pVersion, sCube, sJob, 'Version' );\r\nCellPutS( 'REQUESTED', sCube, sJob, 'Status' );\r\n",
+        "metadata": "#****Begin: Generated Statements***\r\n#****End: Generated Statements****\r\n",
+        "data": "#****Begin: Generated Statements***\r\n#****End: Generated Statements****\r\n",
+        "epilog": "#****Begin: Generated Statements***\r\n#****End: Generated Statements****\r\n"
+      },
+      "from": [],
+      "to": [
+        {
+          "n": "CST ETL Control",
+          "t": "ti"
+        }
+      ]
+    }
   }
 }

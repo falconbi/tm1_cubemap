@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<link rel="icon" href="/cube-map/favicon.svg" type="image/svg+xml">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TM1 CubeMap</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='9' width='10' height='7' rx='2' fill='%23dbeafe' stroke='%23388bfd' stroke-width='1.5'/%3E%3Crect x='18' y='5' width='10' height='7' rx='2' fill='%23fef3c7' stroke='%23d29922' stroke-width='1.5'/%3E%3Crect x='18' y='20' width='10' height='7' rx='2' fill='%23ede9fe' stroke='%238957e5' stroke-width='1.5'/%3E%3Cline x1='14' y1='12.5' x2='18' y2='8.5' stroke='%2358a6ff' stroke-width='1.5'/%3E%3Cline x1='14' y1='12.5' x2='18' y2='23.5' stroke='%2358a6ff' stroke-width='1.5'/%3E%3C/svg%3E">
 <script>
 /**
  * Copyright (c) 2016-2025, The Cytoscape Consortium.
@@ -4378,6 +4378,9 @@ body{font-family:var(--font-ui);background:var(--bg);color:var(--text);display:f
 .filter-btn.f-rollup.active{border-color:#e3620944;color:#e36209;background:rgba(227,98,9,.08);}
 .filter-btn.f-report.active{border-color:#2ea04344;color:#3fb950;background:rgba(46,160,67,.08);}
 .filter-btn.f-recon.active{border-color:#6e768144;color:#9ea7b3;background:rgba(110,118,129,.08);}
+.filter-btn.f-python.active{border-color:#1f6feb44;color:#58a6ff;background:rgba(31,111,235,.08);}
+.filter-btn.f-ti.active{border-color:#f7816644;color:#f78166;background:rgba(247,129,102,.08);}
+.filter-btn.f-rules.active{border-color:#d2992244;color:#d29922;background:rgba(210,153,34,.08);}
 
 .sep{width:1px;height:20px;background:var(--border);flex-shrink:0;}
 
@@ -4395,7 +4398,7 @@ body{font-family:var(--font-ui);background:var(--bg);color:var(--text);display:f
 .ctrl-btn:hover{background:var(--bg4);border-color:var(--border2);}
 
 /* ── MAIN WORKSPACE ───────────────────────────── */
-.workspace{display:flex;flex:1;overflow:hidden;min-height:0;}
+.workspace{display:flex;flex:1;overflow:hidden;min-height:0;position:relative;}
 
 /* ── SIDEBAR ──────────────────────────────────── */
 .sidebar{
@@ -4420,6 +4423,16 @@ body{font-family:var(--font-ui);background:var(--bg);color:var(--text);display:f
 
 /* ── GRAPH CANVAS ─────────────────────────────── */
 #cy{flex:1;background:var(--bg);min-width:0;}
+#edgeLegend{
+  position:absolute;bottom:16px;left:16px;z-index:10;
+  background:var(--bg2);border:1px solid var(--border1);border-radius:8px;
+  padding:8px 12px;font-size:11px;pointer-events:none;
+  box-shadow:0 2px 8px rgba(0,0,0,.3);
+}
+#edgeLegend .legend-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;opacity:.5;margin-bottom:6px;}
+#edgeLegend .legend-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;color:var(--text2);}
+#edgeLegend .legend-row:last-child{margin-bottom:0;}
+#edgeLegend svg{flex-shrink:0;}
 
 /* ── DETAIL PANEL ─────────────────────────────── */
 .detail{
@@ -4542,8 +4555,7 @@ body{font-family:var(--font-ui);background:var(--bg);color:var(--text);display:f
   <span class="header-sub">Healthcare ABC · CST Model</span>
   <div class="header-score">
     <span class="conn-indicator" id="connIndicator" title="Connection status">⬤ Sample data</span>
-    <span class="score-label">Architecture Score</span>
-    <span class="score-pill" id="archScore">92/100</span>
+
     <button class="refresh-btn" id="refreshBtn" onclick="triggerRefresh()" title="Re-extract from TM1 server">
       <span id="refreshIcon">↻</span> Refresh from TM1
     </button>
@@ -4568,13 +4580,19 @@ body{font-family:var(--font-ui);background:var(--bg);color:var(--text);display:f
   </div>
   <div class="sep"></div>
   <div class="filter-group" id="filterGroup">
-    <button class="filter-btn f-input active" data-type="input" onclick="toggleFilter(this)">Input</button>
-    <button class="filter-btn f-driver active" data-type="driver" onclick="toggleFilter(this)">Driver</button>
-    <button class="filter-btn f-allocation active" data-type="allocation" onclick="toggleFilter(this)">Allocation</button>
-    <button class="filter-btn f-rollup active" data-type="rollup" onclick="toggleFilter(this)">Roll-up</button>
-    <button class="filter-btn f-report active" data-type="report" onclick="toggleFilter(this)">Report</button>
-    <button class="filter-btn f-recon active" data-type="recon" onclick="toggleFilter(this)">Recon</button>
+    <button class="filter-btn f-python active" data-type="python" onclick="toggleFilter(this)">Python ETL</button>
+    <button class="filter-btn f-ti active" data-type="ti" onclick="toggleFilter(this)">TI Process</button>
+    <button class="filter-btn f-rules active" id="rulesToggleBtn" onclick="toggleRules(this)" style="margin-left:8px;border-left:1px solid var(--border);padding-left:12px;">Rules</button>
+    <button class="filter-btn f-recon active" id="feederToggleBtn" onclick="toggleFeeders(this)">Feeders</button>
   </div>
+  <div style="position:relative">
+    <button id="tagFilterBtn" onclick="toggleTagDropdown()" style="display:none;font-size:11px;padding:3px 10px;border-radius:6px;cursor:pointer;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);white-space:nowrap">Tags</button>
+    <div id="tagFilterDropdown" style="display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:200;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:8px 0;min-width:160px;box-shadow:0 8px 24px rgba(0,0,0,.4)"></div>
+  </div>
+  <button id="modulePromptBtn" onclick="copyModulePrompt()"
+    style="display:none;font-size:11px;padding:3px 10px;border-radius:6px;cursor:pointer;border:1px solid #a371f744;background:rgba(163,113,247,.12);color:#a371f7;white-space:nowrap;font-weight:600">
+    Copy Module Prompt
+  </button>
   <div class="sep"></div>
   <select class="layout-select" id="layoutSelect" onchange="applyLayout(this.value)">
     <option value="dagre-lr">Left → Right</option>
@@ -4583,7 +4601,15 @@ body{font-family:var(--font-ui);background:var(--bg);color:var(--text);display:f
     <option value="circle">Circle</option>
     <option value="cose">Force-Directed</option>
   </select>
-  <button class="ctrl-btn" onclick="cy.fit(null,50);showToast('View reset')">Fit</button>
+  <button class="ctrl-btn" id="dimToggleBtn" onclick="toggleDimLabels(this)" title="Show dimension names on nodes">Dims</button>
+  <button class="ctrl-btn" id="ramHeatBtn" onclick="toggleRamHeatmap(this)" title="Heatmap node intensity by RAM usage">RAM</button>
+  <button class="ctrl-btn" id="pmToggleBtn" onclick="togglePerfMonitor()" title="Enable/disable TM1 Performance Monitor (required for RAM data)">PM ···</button>
+  <button class="ctrl-btn" onclick="cy.fit(cy.elements(), 50);showToast('View reset')">Fit</button>
+  <button class="ctrl-btn" id="saveLayoutBtn" onclick="saveLayout()" title="Save current node positions">Save Layout</button>
+  <div id="layoutMenuWrap" style="position:relative;display:inline-block;">
+    <button class="ctrl-btn" id="loadLayoutBtn" onclick="toggleLayoutMenu()" title="Load a saved layout">Load Layout ▾</button>
+    <div id="layoutMenu" style="display:none;position:absolute;top:100%;left:0;z-index:100;background:var(--bg2);border:1px solid var(--border1);border-radius:6px;min-width:140px;padding:4px 0;box-shadow:0 4px 12px rgba(0,0,0,.4)"></div>
+  </div>
   <button class="ctrl-btn" onclick="cy.zoom(cy.zoom()*1.3)">＋</button>
   <button class="ctrl-btn" onclick="cy.zoom(cy.zoom()*0.75)">－</button>
   <button class="ctrl-btn" onclick="resetAll()">Reset</button>
@@ -4591,38 +4617,105 @@ body{font-family:var(--font-ui);background:var(--bg);color:var(--text);display:f
 
 <div class="workspace">
   <div class="sidebar">
-    <div class="sidebar-title">Cubes (8)</div>
+    <div class="sidebar-title">Objects (8)</div>
     <div class="sidebar-list" id="sidebarList"></div>
   </div>
   <div id="cy"></div>
+  <div id="edgeLegend">
+    <div class="legend-title">Edge types</div>
+    <div class="legend-row"><svg width="36" height="10"><line x1="0" y1="5" x2="36" y2="5" stroke="#d29922" stroke-width="1.5"/><polygon points="34,2 36,5 34,8" fill="#d29922"/></svg><span style="color:#d29922">Rule (calc)</span></div>
+    <div class="legend-row"><svg width="36" height="10"><line x1="0" y1="5" x2="36" y2="5" stroke="#6e7681" stroke-width="1.5" stroke-dasharray="3,6" opacity="0.45"/><polygon points="34,2 36,5 34,8" fill="#6e7681" opacity="0.45"/></svg><span style="opacity:.45">Rule (feeder)</span></div>
+    <div class="legend-row"><svg width="36" height="10"><line x1="0" y1="5" x2="36" y2="5" stroke="#1f6feb" stroke-width="1.5" stroke-dasharray="4,4"/><polygon points="34,2 36,5 34,8" fill="#1f6feb"/></svg><span style="color:#58a6ff">Python ETL</span></div>
+    <div class="legend-row"><svg width="36" height="10"><line x1="0" y1="5" x2="36" y2="5" stroke="#f78166" stroke-width="1.5" stroke-dasharray="8,3"/><polygon points="34,2 36,5 34,8" fill="#f78166"/></svg><span style="color:#f78166">TI Process</span></div>
+    <div class="legend-row"><svg width="36" height="10"><line x1="0" y1="5" x2="36" y2="5" stroke="#a371f7" stroke-width="1.8"/><polygon points="34,2 36,5 34,8" fill="#a371f7"/></svg><span style="color:#a371f7">Triggers script</span></div>
+  </div>
   <div class="detail" id="detailPanel">
     <div class="detail-header">
       <div>
         <div class="detail-name" id="dName">—</div>
         <span class="detail-type" id="dType"></span>
       </div>
+      <a id="pawLink" href="#" target="_blank" rel="noopener" style="display:none;font-size:11px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);color:#58a6ff;text-decoration:none;background:var(--bg4);white-space:nowrap">Open in PAW ↗</a>
       <button class="close-btn" onclick="closePanel()">×</button>
     </div>
+    <div style="display:flex;border-bottom:1px solid var(--border);padding:0 14px;gap:0">
+      <button id="tabBtnDetail" onclick="showDetailTab()" style="font-size:11px;padding:6px 12px;border:none;border-bottom:2px solid var(--accent);background:none;color:var(--text1);cursor:pointer;font-weight:600">Detail</button>
+      <button id="tabBtnSpec" onclick="showSpecTab()" style="font-size:11px;padding:6px 12px;border:none;border-bottom:2px solid transparent;background:none;color:var(--text2);cursor:pointer">Spec</button>
+    </div>
     <div class="detail-body" id="dBody"></div>
+    <div class="detail-body" id="dBodySpec" style="display:none"></div>
   </div>
 </div>
 
 <div id="toast"></div>
 
+<!-- Rules viewer modal -->
+<div id="rulesModal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.7);backdrop-filter:blur(2px);">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(860px,92vw);max-height:82vh;display:flex;flex-direction:column;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;overflow:hidden;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <span id="rulesModalTitle" style="font-size:13px;font-weight:600;color:var(--text);font-family:var(--font-mono)"></span>
+      <button onclick="closeRulesModal()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px;">×</button>
+    </div>
+    <pre id="rulesModalBody" style="margin:0;padding:16px 18px;overflow:auto;font-size:12px;line-height:1.6;font-family:var(--font-mono);color:var(--text);white-space:pre-wrap;word-break:break-word;flex:1;"></pre>
+  </div>
+</div>
+
 <script>
 /* ── COLOURS ────────────────────────────────────────────────── */
 const COLORS = {
-  input:      '#388bfd',
-  driver:     '#d29922',
-  allocation: '#8957e5',
-  rollup:     '#e36209',
-  report:     '#2ea043',
-  recon:      '#6e7681',
+  python: '#1f6feb',
+  ti:     '#f78166',
 };
+const CUBE_NEUTRAL = '#2d333b';
+
+function objectColor(id, c) {
+  if (c.type === 'python') return COLORS.python;
+  if (c.type === 'ti')     return COLORS.ti;
+  const tags = getTagsForCube(id);
+  return tags.length ? (TAGS.tagDefs[tags[0]] || '#6e7681') : '#6e7681';
+}
 const TYPE_LABEL = {
   input:'Input', driver:'Driver', allocation:'Allocation',
   rollup:'Cost roll-up', report:'Report output', recon:'Reconciliation',
+  python:'Python ETL', ti:'TI Process',
 };
+
+/* ── TAGS ───────────────────────────────────────────────────── */
+let TAGS = { tagDefs: {}, cubeTags: {} };
+const TAG_PALETTE = ['#1f6feb','#3fb950','#d29922','#f78166','#8957e5','#e36209','#f85149','#58a6ff','#56d364','#e3b341'];
+let _tagPaletteIdx = 0;
+function nextTagColor() { return TAG_PALETTE[_tagPaletteIdx++ % TAG_PALETTE.length]; }
+
+function saveTags() {
+  return fetch('/api/tags', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(TAGS),
+  });
+}
+
+function getTagsForCube(cubeId) { return TAGS.cubeTags[cubeId] || []; }
+
+function addTagToCube(cubeId, tag) {
+  if (!TAGS.tagDefs[tag]) TAGS.tagDefs[tag] = nextTagColor();
+  if (!TAGS.cubeTags[cubeId]) TAGS.cubeTags[cubeId] = [];
+  if (!TAGS.cubeTags[cubeId].includes(tag)) TAGS.cubeTags[cubeId].push(tag);
+  saveTags();
+  cy.getElementById(cubeId).data('tags', getTagsForCube(cubeId));
+  cy.getElementById(cubeId).data('tagColor', TAGS.tagDefs[TAGS.cubeTags[cubeId][0]]);
+  refreshTagFilterBtn();
+}
+
+function removeTagFromCube(cubeId, tag) {
+  if (!TAGS.cubeTags[cubeId]) return;
+  TAGS.cubeTags[cubeId] = TAGS.cubeTags[cubeId].filter(t => t !== tag);
+  if (!TAGS.cubeTags[cubeId].length) delete TAGS.cubeTags[cubeId];
+  saveTags();
+  const remaining = getTagsForCube(cubeId);
+  cy.getElementById(cubeId).data('tags', remaining);
+  cy.getElementById(cubeId).data('tagColor', remaining.length ? TAGS.tagDefs[remaining[0]] : null);
+  refreshTagFilterBtn();
+}
 
 /* ── CUBE DATA ──────────────────────────────────────────────── */
 /*
@@ -4758,40 +4851,58 @@ const CUBES = {
 };
 
 /* ── BUILD ELEMENTS ─────────────────────────────────────────── */
+function isOrphaned(c) {
+  const realEdge = e => {
+    const t = typeof e === 'string' ? 'rule_calc' : (e.t || 'rule_calc');
+    return t === 'rule_calc' || t === 'python' || t === 'ti';
+  };
+  const hasRealFrom = (c.from||[]).some(realEdge);
+  const hasRealTo   = (c.to||[]).some(realEdge);
+  return !hasRealFrom && !hasRealTo;
+}
+
+let showDims = false;
+
+function nodeLabel(id, c) {
+  if (c.type === 'python') return id + '\nPython ETL';
+  if (c.type === 'ti')     return id + '\nTI Process';
+  const dimsCount  = (c.dims||[]).length;
+  const viewsCount = (c.views||[]).length;
+  const ram = c.ramMb ? (c.ramMb >= 1024 ? (c.ramMb/1024).toFixed(1)+'GB' : c.ramMb+'MB') : null;
+  const parts = [dimsCount + ' dim' + (dimsCount!==1?'s':''), viewsCount + ' view' + (viewsCount!==1?'s':'')];
+  if (ram) parts.push(ram);
+  return id + '\n' + parts.join('  ·  ');
+}
+
 function buildElements(cubesObj) {
   const els = [];
+  const maxRam = Math.max(1, ...Object.values(cubesObj).map(c => c.ramMb || 0));
   Object.entries(cubesObj).forEach(([id,c])=>{
-    const dimsCount = (c.dims||[]).length;
-    const ram = c.ramMb ? (c.ramMb >= 1024 ? (c.ramMb/1024).toFixed(1)+'GB' : c.ramMb+'MB') : '—';
-    const sub = dimsCount + ' dim' + (dimsCount!==1?'s':'') + '  ·  ' + ram;
-    els.push({data:{id, label:id+'\n'+sub, type:c.type, color:COLORS[c.type]}});
+    const orphaned     = isOrphaned(c);
+    const undocumented = c.descSource === 'ai_inferred';
+    const ramHeat      = c.ramMb ? c.ramMb / maxRam : 0;
+    const lbl          = nodeLabel(id, c);
+    const w            = Math.max(80, ...lbl.split('\n').map(l => l.length * 7.2 + 32));
+    const cubeTags     = getTagsForCube(id);
+    const tagColor     = cubeTags.length ? (TAGS.tagDefs[cubeTags[0]] || null) : null;
+    const nodeColor = (c.type === 'python' || c.type === 'ti') ? COLORS[c.type] : CUBE_NEUTRAL;
+    els.push({data:{id, label:lbl, w, type:c.type, color:nodeColor, orphaned, undocumented, ramHeat, tags:cubeTags, tagColor}});
   });
   Object.entries(cubesObj).forEach(([src,c])=>{
-    (c.to||[]).forEach(tgt=>{
-      const isRecon = cubesObj[tgt]?.type==='recon' || cubesObj[src]?.type==='recon';
-      els.push({data:{id:src+'→'+tgt, source:src, target:tgt, recon:isRecon}});
+    (c.to||[]).forEach(edgeObj=>{
+      const tgt      = typeof edgeObj === 'string' ? edgeObj : edgeObj.n;
+      const etype           = typeof edgeObj === 'string' ? 'rule_calc' : (edgeObj.t || 'rule_calc');
+      const isPython        = etype === 'python' || cubesObj[tgt]?.type==='python' || cubesObj[src]?.type==='python';
+      const isTi            = etype === 'ti'     || cubesObj[tgt]?.type==='ti'     || cubesObj[src]?.type==='ti';
+      const isFeeder        = etype === 'rule_feeder';
+      const isPythonTrigger = etype === 'python_trigger';
+      els.push({data:{id:src+'→'+tgt, source:src, target:tgt, python:isPython, ti:isTi, feeder:isFeeder, pythonTrigger:isPythonTrigger, etype}});
     });
   });
   return els;
 }
 
-function loadModel(cubesObj, meta) {
-  // Update header score
-  if (meta?.archScore !== undefined) {
-    document.getElementById('archScore').textContent = meta.archScore + '/100';
-    const scoreEl = document.getElementById('archScore');
-    const s = meta.archScore;
-    scoreEl.style.cssText = s>=80
-      ? 'background:rgba(46,160,67,.12);border:1px solid rgba(46,160,67,.3);color:#3fb950;'
-      : s>=60
-      ? 'background:rgba(210,153,34,.1);border:1px solid rgba(210,153,34,.3);color:#d29922;'
-      : 'background:rgba(218,54,51,.1);border:1px solid rgba(218,54,51,.3);color:#f85149;';
-    scoreEl.style.fontFamily = 'var(--font-mono)';
-    scoreEl.style.fontSize = '11px';
-    scoreEl.style.padding = '3px 10px';
-    scoreEl.style.borderRadius = '12px';
-    scoreEl.style.fontWeight = '600';
-  }
+function loadModel(cubesObj, meta, savedPositions) {
   // Update subtitle if we have server info
   if (meta?.database) {
     document.querySelector('.header-sub').textContent =
@@ -4799,13 +4910,47 @@ function loadModel(cubesObj, meta) {
   }
   // Update sidebar count
   const count = Object.keys(cubesObj).length;
-  document.querySelector('.sidebar-title').textContent = `Cubes (${count})`;
+  document.querySelector('.sidebar-title').textContent = `Objects (${count})`;
 
   // Rebuild graph
+  showRamHeatmap = false;
   cy.elements().remove();
   cy.add(buildElements(cubesObj));
   buildSidebar();
-  cy.layout({name:'dagre', rankDir:'LR', nodeSep:45, rankSep:100, edgeSep:20, padding:60, animate:true, animationDuration:600}).run();
+  const dagreLayout = cy.layout({name:'dagre', rankDir:'LR', nodeSep:45, rankSep:100, edgeSep:20, padding:60, animate:false});
+  if (savedPositions && savedPositions.length) {
+    const posMap = {};
+    savedPositions.forEach(p => posMap[p.id] = {x: p.x, y: p.y});
+    dagreLayout.one('layoutstop', () => {
+      cy.batch(() => { cy.nodes().forEach(n => { if (posMap[n.id()]) n.position(posMap[n.id()]); }); });
+    });
+  }
+  dagreLayout.run();
+  // Enable/disable RAM heatmap button based on data availability
+  const ramBtn = document.getElementById('ramHeatBtn');
+  if (ramBtn) {
+    const hasRam = cy.nodes().some(n => n.data('ramHeat') > 0);
+    ramBtn.classList.remove('active');
+    ramBtn.disabled = !hasRam;
+    ramBtn.title = hasRam
+      ? 'Heatmap node intensity by RAM usage'
+      : 'RAM data unavailable — enable Performance Monitor on V11 server';
+  }
+}
+
+// Load PAW config for deep-links
+let PAW_CONFIG = { paw_host: '', paw_account_id: '', paw_tenant_id: '' };
+fetch('/api/config')
+  .then(r => r.ok ? r.json() : Promise.reject())
+  .then(data => { PAW_CONFIG = data; })
+  .catch(() => {});
+
+function pawModelingUrl() {
+  if (!PAW_CONFIG.paw_host || !PAW_CONFIG.paw_account_id || !PAW_CONFIG.paw_tenant_id) return null;
+  return PAW_CONFIG.paw_host
+    + '/?accountId=' + encodeURIComponent(PAW_CONFIG.paw_account_id)
+    + '&tenantId='   + encodeURIComponent(PAW_CONFIG.paw_tenant_id)
+    + '&perspective=modeling';
 }
 
 // Try to load live model from API; fall back to embedded CUBES
@@ -4814,9 +4959,21 @@ fetch('/api/model')
   .then(data => {
     console.log('✅ Loaded /api/model — live model data');
     // Merge loaded cubes over CUBES (live data wins)
+    Object.keys(CUBES).forEach(k => delete CUBES[k]);
     Object.assign(CUBES, data.cubes || {});
-    loadModel(CUBES, data.meta);
-    showToast('Live model loaded from /api/model');
+    window._lastMeta = data.meta;
+    // Load tags then layout, then render
+    fetch('/api/tags').then(r => r.ok ? r.json() : {tagDefs:{}, cubeTags:{}})
+      .then(tags => {
+        TAGS = tags;
+        _tagPaletteIdx = Object.keys(tags.tagDefs).length;
+        refreshTagFilterBtn();
+        return fetch('/api/layouts/default').then(r => r.ok ? r.json() : Promise.reject()).catch(() => null);
+      })
+      .then(layout => {
+        loadModel(CUBES, window._lastMeta, layout?.positions || []);
+        showToast(layout ? 'Live model loaded — layout "default" restored' : 'Live model loaded from /api/model');
+      });
   })
   .catch(() => {
     console.log('ℹ️  /api/model not available — using embedded sample data');
@@ -4825,13 +4982,25 @@ fetch('/api/model')
 
 /* ── CYTOSCAPE ──────────────────────────────────────────────── */
 cytoscape.use(cytoscapeDagre);
+
+// RAM button state — set after cy is created (see bottom of script)
+function initRamBtn() {
+  const ramBtn = document.getElementById('ramHeatBtn');
+  if (!ramBtn) return;
+  const hasRam = cy.nodes().some(n => n.data('ramHeat') > 0);
+  ramBtn.disabled = !hasRam;
+  ramBtn.title = hasRam
+    ? 'Heatmap node intensity by RAM usage'
+    : 'RAM data unavailable — enable Performance Monitor on a V11 server';
+}
+
 const cy = cytoscape({
   container: document.getElementById('cy'),
   elements: buildElements(CUBES),
   layout: {name:'dagre', rankDir:'LR', nodeSep:45, rankSep:100, edgeSep:20, padding:60, animate:true, animationDuration:600},
   style: [
     {selector:'node', style:{
-      shape:'round-rectangle', 'width':'label', height:58, padding:16,
+      shape:'round-rectangle', 'width':'data(w)', height:58, padding:16,
       'background-color':'data(color)', 'background-opacity':0.14,
       'border-width':1.5, 'border-color':'data(color)', 'border-opacity':0.7,
       label:'data(label)', 'font-family':'IBM Plex Sans,Segoe UI,sans-serif',
@@ -4846,14 +5015,38 @@ const cy = cytoscape({
     {selector:'node.faded', style:{'background-opacity':0.03,'border-opacity':0.12,color:'#3d444d'}},
     {selector:'node.search-match', style:{'background-opacity':0.35,'border-opacity':1,'border-width':2.5,'border-color':'#f0f6fc',color:'#f0f6fc'}},
     {selector:'edge', style:{
-      width:1.5, 'line-color':'#30363d',
-      'target-arrow-color':'#58a6ff', 'target-arrow-shape':'triangle',
-      'arrow-scale':0.85, 'curve-style':'bezier', opacity:0.65,
+      width:1.5, 'line-color':'#d29922',
+      'target-arrow-color':'#d29922', 'target-arrow-shape':'triangle',
+      'arrow-scale':0.85, 'curve-style':'bezier', opacity:0.75,
       'transition-property':'opacity,line-color,width','transition-duration':'0.15s',
     }},
-    {selector:'edge[?recon]', style:{
-      'line-style':'dashed', 'line-dash-pattern':[6,3],
-      'line-color':'#d29922', 'target-arrow-color':'#d29922',
+    {selector:'edge[?python]', style:{
+      'line-style':'dashed', 'line-dash-pattern':[4,4],
+      'line-color':'#1f6feb', 'target-arrow-color':'#1f6feb',
+    }},
+    {selector:'edge[?ti]', style:{
+      'line-style':'dashed', 'line-dash-pattern':[8,3],
+      'line-color':'#f78166', 'target-arrow-color':'#f78166',
+    }},
+    {selector:'edge[?feeder]', style:{
+      'line-style':'dotted', 'line-dash-pattern':[2,4],
+      'line-color':'#6e7681', 'target-arrow-color':'#6e7681', opacity:0.45,
+    }},
+    {selector:'edge[?pythonTrigger]', style:{
+      'line-style':'solid',
+      'line-color':'#a371f7', 'target-arrow-color':'#a371f7',
+      width:1.8, opacity:0.8,
+    }},
+    {selector:'node[?orphaned]', style:{
+      'border-style':'dashed', 'border-width':1.5, 'border-color':'#f85149',
+      'background-color':'rgba(248,81,73,0.07)',
+    }},
+    {selector:'node[?undocumented]', style:{
+      'border-style':'dashed', 'border-width':1.5, 'border-color':'#8957e5',
+      'background-color':'rgba(137,87,229,0.06)',
+    }},
+    {selector:'node[tagColor]', style:{
+      'border-color':'data(tagColor)', 'border-width':2.5, 'border-opacity':1,
     }},
     {selector:'edge.highlighted', style:{'line-color':'#58a6ff',width:2.5,opacity:1}},
     {selector:'edge.faded', style:{opacity:0.05}},
@@ -4862,18 +5055,27 @@ const cy = cytoscape({
   boxSelectionEnabled:false, selectionType:'single',
   minZoom:0.2, maxZoom:4,
 });
+initRamBtn();
 
 /* ── SIDEBAR ────────────────────────────────────────────────── */
 function buildSidebar(prefixFilter){
   const el = document.getElementById('sidebarList');
   el.innerHTML = '';
   const pf = (prefixFilter||'').toUpperCase();
-  Object.entries(CUBES).forEach(([id,c])=>{
+  // Cubes first (sorted), then Python ETL, then TI processes
+  const order = ['python','ti'];
+  const sorted = Object.entries(CUBES).sort(([a,ac],[b,bc]) => {
+    const ai = order.indexOf(ac.type), bi = order.indexOf(bc.type);
+    const ag = ai === -1 ? 0 : ai + 1, bg = bi === -1 ? 0 : bi + 1;
+    if (ag !== bg) return ag - bg;
+    return a.localeCompare(b);
+  });
+  sorted.forEach(([id,c])=>{
     if(pf && !id.toUpperCase().startsWith(pf)) return;
     const item = document.createElement('div');
     item.className = 'sidebar-item';
     item.dataset.id = id;
-    item.innerHTML = `<span class="sidebar-dot" style="background:${COLORS[c.type]}"></span><span class="sidebar-name" title="${id}">${id}</span>`;
+    item.innerHTML = `<span class="sidebar-dot" style="background:${objectColor(id,c)}"></span><span class="sidebar-name" title="${id}">${id}</span>`;
     item.onclick = ()=> selectCube(id);
     el.appendChild(item);
   });
@@ -4893,13 +5095,150 @@ function selectCube(id){
 }
 
 /* ── PANEL ──────────────────────────────────────────────────── */
+function setPawLink() {
+  const link = document.getElementById('pawLink');
+  const url = pawModelingUrl();
+  if (url) { link.href = url; link.style.display = ''; }
+  else { link.style.display = 'none'; }
+}
+
+function openPythonPanel(id) {
+  const c = CUBES[id]; if(!c) return;
+  setPawLink();
+  document.getElementById('dName').textContent = id;
+  const dt = document.getElementById('dType');
+  dt.textContent = TYPE_LABEL['python'];
+  dt.style.cssText = `background:#1f6feb22;border:1px solid #1f6feb44;color:#58a6ff;`;
+
+  const readsHtml = (c.from||[]).length
+    ? (c.from||[]).map(f=>`<div class="flow-item" onclick="selectCube('${f}')"><span class="flow-arrow">←</span>${f}</div>`).join('')
+    : '<p class="d-desc">No cube reads detected</p>';
+  const writesHtml = (c.to||[]).length
+    ? (c.to||[]).map(t=>`<div class="flow-item" onclick="selectCube('${t}')"><span class="flow-arrow">→</span>${t}</div>`).join('')
+    : '<p class="d-desc">No cube writes detected</p>';
+
+  document.getElementById('dBody').innerHTML = `
+    <div class="d-section">
+      <div class="d-label">Description</div>
+      <p class="d-desc">${c.desc || 'Python ETL script'}</p>
+      ${c.scriptPath ? `<p class="d-desc" style="font-family:var(--font-mono);font-size:11px;opacity:.6;margin-top:4px">${c.scriptPath}</p>` : ''}
+    </div>
+    <div class="d-section" id="tagSection">
+      <div class="d-label">Tags</div>
+      <div id="tagChips" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">${buildTagChipsHtml(id)}</div>
+      <div style="display:flex;gap:4px;align-items:center">
+        <input id="tagInput" list="tagSuggestions" placeholder="Add tag…"
+          style="flex:1;font-size:11px;padding:3px 7px;border-radius:4px;border:1px solid var(--border2);background:var(--bg4);color:var(--text1);outline:none"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();addTagFromInput('${id}')}"
+        >
+        <datalist id="tagSuggestions">${Object.keys(TAGS.tagDefs).map(t=>`<option value="${t}">`).join('')}</datalist>
+        <button onclick="addTagFromInput('${id}')" style="font-size:11px;padding:3px 9px;border-radius:4px;border:1px solid var(--border2);background:var(--bg4);color:var(--text2);cursor:pointer">+</button>
+      </div>
+    </div>
+    <div class="d-section">
+      <div class="d-label">Reads from</div>
+      <div class="flow-list">${readsHtml}</div>
+    </div>
+    <div class="d-section">
+      <div class="d-label">Writes to</div>
+      <div class="flow-list">${writesHtml}</div>
+    </div>
+  `;
+  _currentPanelId = id; showDetailTab(); _checkSpecBadge(id); document.getElementById('detailPanel').classList.add('open');
+}
+
+function openTiPanel(id) {
+  const c = CUBES[id]; if(!c) return;
+  setPawLink();
+  document.getElementById('dName').textContent = id;
+  const dt = document.getElementById('dType');
+  dt.textContent = TYPE_LABEL['ti'];
+  dt.style.cssText = `background:#f7816622;border:1px solid #f7816644;color:#f78166;`;
+
+  const readsHtml = (c.from||[]).length
+    ? (c.from||[]).map(f=>`<div class="flow-item" onclick="selectCube('${typeof f==='string'?f:f.n}')"><span class="flow-arrow">←</span>${typeof f==='string'?f:f.n}</div>`).join('')
+    : '<p class="d-desc">No cube reads detected</p>';
+  const writesHtml = (c.to||[]).length
+    ? (c.to||[]).map(t=>`<div class="flow-item" onclick="selectCube('${typeof t==='string'?t:t.n}')"><span class="flow-arrow">→</span>${typeof t==='string'?t:t.n}</div>`).join('')
+    : '<p class="d-desc">No cube writes detected</p>';
+
+  document.getElementById('dBody').innerHTML = `
+    <div class="d-section">
+      <div class="d-label">Description</div>
+      <p class="d-desc">${c.desc || 'TI Process'}</p>
+    </div>
+    <div class="d-section" id="tagSection">
+      <div class="d-label">Tags</div>
+      <div id="tagChips" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">${buildTagChipsHtml(id)}</div>
+      <div style="display:flex;gap:4px;align-items:center">
+        <input id="tagInput" list="tagSuggestions" placeholder="Add tag…"
+          style="flex:1;font-size:11px;padding:3px 7px;border-radius:4px;border:1px solid var(--border2);background:var(--bg4);color:var(--text1);outline:none"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();addTagFromInput('${id}')}"
+        >
+        <datalist id="tagSuggestions">${Object.keys(TAGS.tagDefs).map(t=>`<option value="${t}">`).join('')}</datalist>
+        <button onclick="addTagFromInput('${id}')" style="font-size:11px;padding:3px 9px;border-radius:4px;border:1px solid var(--border2);background:var(--bg4);color:var(--text2);cursor:pointer">+</button>
+      </div>
+    </div>
+    <div class="d-section">
+      <div class="d-label">Reads from</div>
+      <div class="flow-list">${readsHtml}</div>
+    </div>
+    <div class="d-section">
+      <div class="d-label">Writes to</div>
+      <div class="flow-list">${writesHtml}</div>
+    </div>
+  `;
+  _currentPanelId = id; showDetailTab(); _checkSpecBadge(id); document.getElementById('detailPanel').classList.add('open');
+}
+
+function buildViewsSection(cubeId, views) {
+  const count = views.length;
+  const listHtml = count
+    ? views.map(v => `<div class="flow-item" style="cursor:default"><span style="opacity:.5;margin-right:6px">▸</span>${v}</div>`).join('')
+    : '<p class="d-desc">No public views — add views in PAW or TM1 Web</p>';
+  return `<div class="d-section" id="viewsSection-${cubeId.replace(/\s/g,'_')}">
+    <div class="d-label" style="display:flex;align-items:center;justify-content:space-between;">
+      Public views (${count})
+      <button onclick="refreshViews('${cubeId}')" style="font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid var(--border2);background:var(--bg4);color:var(--text2);cursor:pointer;">Refresh</button>
+    </div>
+    <div class="flow-list" id="viewsList-${cubeId.replace(/\s/g,'_')}">${listHtml}</div>
+  </div>`;
+}
+
+function refreshViews(cubeId) {
+  const key = cubeId.replace(/\s/g,'_');
+  const section = document.getElementById('viewsSection-' + key);
+  const list    = document.getElementById('viewsList-' + key);
+  if (!section || !list) return;
+  const label = section.querySelector('.d-label');
+  list.innerHTML = '<p class="d-desc" style="opacity:.6">Loading…</p>';
+  fetch('/api/tm1/views?cube=' + encodeURIComponent(cubeId))
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(data => {
+      const views = data.views || [];
+      if (CUBES[cubeId]) CUBES[cubeId].views = views;
+      const listHtml = views.length
+        ? views.map(v => `<div class="flow-item" style="cursor:default"><span style="opacity:.5;margin-right:6px">▸</span>${v}</div>`).join('')
+        : '<p class="d-desc">No public views</p>';
+      list.innerHTML = listHtml;
+      label.innerHTML = `Public views (${views.length}) <button onclick="refreshViews('${cubeId}')" style="font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid var(--border2);background:var(--bg4);color:var(--text2);cursor:pointer;">Refresh</button>`;
+    })
+    .catch(() => {
+      list.innerHTML = '<p class="d-desc" style="color:#f85149">Could not reach TM1</p>';
+    });
+}
+
 function openPanel(id){
   const c = CUBES[id]; if(!c) return;
+  if(c.type === 'python') { openPythonPanel(id); return; }
+  if(c.type === 'ti')     { openTiPanel(id);     return; }
+  setPawLink();
   document.getElementById('dName').textContent = id;
 
   const dt = document.getElementById('dType');
-  dt.textContent = TYPE_LABEL[c.type];
-  dt.style.cssText = `background:${COLORS[c.type]}22;border:1px solid ${COLORS[c.type]}44;color:${COLORS[c.type]};`;
+  const panelColor = objectColor(id, c);
+  dt.textContent = TYPE_LABEL[c.type] || c.type;
+  dt.style.cssText = `background:${panelColor}22;border:1px solid ${panelColor}44;color:${panelColor};`;
 
   // Trust badge
   const badges = {
@@ -4921,7 +5260,10 @@ function openPanel(id){
     else if(score>300){compClass='very-high';compLabel='🔴 VERY HIGH';}
 
     rulesHtml = `<div class="d-section">
-      <div class="d-label">Rules analysis</div>
+      <div class="d-label" style="display:flex;align-items:center;justify-content:space-between;">
+        Rules analysis
+        ${c.rulesText ? `<button onclick="openRulesModal('${id}')" style="font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid var(--border2);background:var(--bg4);color:var(--text2);cursor:pointer;">View Rules</button>` : ''}
+      </div>
       <div class="rules-grid">
         <div class="rules-cell"><div class="val">${r.total}</div><div class="lbl">Total</div></div>
         <div class="rules-cell"><div class="val">${r.lines}</div><div class="lbl">Rules</div></div>
@@ -4942,12 +5284,25 @@ function openPanel(id){
   }
 
   // Flow
+  const edgeName = e => typeof e === 'string' ? e : e.n;
+  const edgeType = e => typeof e === 'string' ? 'rule_calc' : (e.t || 'rule_calc');
+  const edgeIcon = e => {
+    const t = edgeType(e);
+    if (t === 'rule_feeder')    return '<span style="font-size:10px;opacity:.5;margin-left:4px">feeder</span>';
+    if (t === 'python')         return '<span style="font-size:10px;color:#58a6ff;margin-left:4px">python</span>';
+    if (t === 'ti')             return '<span style="font-size:10px;color:#f78166;margin-left:4px">TI</span>';
+    if (t === 'python_trigger') return '<span style="font-size:10px;color:#a371f7;margin-left:4px">triggers</span>';
+    return '';
+  };
   const fromHtml = c.from.length
-    ? c.from.map(f=>`<div class="flow-item" onclick="selectCube('${f}')"><span class="flow-arrow">←</span>${f}</div>`).join('')
+    ? c.from.map(f=>`<div class="flow-item" onclick="selectCube('${edgeName(f)}')"><span class="flow-arrow">←</span>${edgeName(f)}${edgeIcon(f)}</div>`).join('')
     : '<p class="d-desc">Source cube — no upstream dependencies</p>';
   const toHtml = c.to.length
-    ? c.to.map(t=>`<div class="flow-item" onclick="selectCube('${t}')"><span class="flow-arrow">→</span>${t}</div>`).join('')
+    ? c.to.map(t=>`<div class="flow-item" onclick="selectCube('${edgeName(t)}')"><span class="flow-arrow">→</span>${edgeName(t)}${edgeIcon(t)}</div>`).join('')
     : '<p class="d-desc">Terminal cube — no downstream outputs</p>';
+
+  // Views
+  const viewsHtml = buildViewsSection(id, c.views || []);
 
   // Stats
   const totalConn = c.from.length + c.to.length;
@@ -4959,17 +5314,35 @@ function openPanel(id){
     return `<span class="dim-tag ${k}">${d.n}</span>`;
   }).join('');
 
+  const orphanWarning = isOrphaned(c)
+    ? `<div style="margin-bottom:12px;padding:8px 10px;border-radius:6px;background:rgba(248,81,73,.1);border:1px solid rgba(248,81,73,.3);color:#f85149;font-size:11px;">⚠ Orphaned — no upstream or downstream rule/ETL connections</div>`
+    : '';
+
   document.getElementById('dBody').innerHTML = `
+    ${orphanWarning}
     <div class="d-section">
       <div class="d-label">Description</div>
       <p class="d-desc">${c.desc}</p>
       <span class="trust-badge ${badges[c.descSource][1]}">${bLabel}</span>
+    </div>
+    <div class="d-section" id="tagSection">
+      <div class="d-label">Tags</div>
+      <div id="tagChips" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">${buildTagChipsHtml(id)}</div>
+      <div style="display:flex;gap:4px;align-items:center">
+        <input id="tagInput" list="tagSuggestions" placeholder="Add tag…"
+          style="flex:1;font-size:11px;padding:3px 7px;border-radius:4px;border:1px solid var(--border2);background:var(--bg4);color:var(--text1);outline:none"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();addTagFromInput('${id}')}"
+        >
+        <datalist id="tagSuggestions">${Object.keys(TAGS.tagDefs).map(t=>`<option value="${t}">`).join('')}</datalist>
+        <button onclick="addTagFromInput('${id}')" style="font-size:11px;padding:3px 9px;border-radius:4px;border:1px solid var(--border2);background:var(--bg4);color:var(--text2);cursor:pointer">+</button>
+      </div>
     </div>
     <div class="d-section">
       <div class="d-label">Dimensions (${c.dims.length})</div>
       <div class="dim-tags">${dimTags}</div>
     </div>
     ${rulesHtml}
+    ${viewsHtml}
     <div class="d-section">
       <div class="d-label">Connections</div>
       <div class="stats-row">
@@ -4988,7 +5361,7 @@ function openPanel(id){
       <div class="flow-list">${toHtml}</div>
     </div>
   `;
-  document.getElementById('detailPanel').classList.add('open');
+  _currentPanelId = id; showDetailTab(); _checkSpecBadge(id); document.getElementById('detailPanel').classList.add('open');
 }
 
 function closePanel(){
@@ -4996,9 +5369,181 @@ function closePanel(){
   resetAll();
 }
 
+/* ── SPEC EDITOR ────────────────────────────────────────────────── */
+let _currentPanelId = null;
+let _specPanelActive = false;
+
+function _setActiveTab(tab) {
+  _specPanelActive = tab === 'spec';
+  document.getElementById('dBody').style.display        = _specPanelActive ? 'none' : '';
+  document.getElementById('dBodySpec').style.display    = _specPanelActive ? '' : 'none';
+  document.getElementById('tabBtnDetail').style.borderBottomColor = _specPanelActive ? 'transparent' : 'var(--accent)';
+  document.getElementById('tabBtnDetail').style.color             = _specPanelActive ? 'var(--text2)' : 'var(--text1)';
+  document.getElementById('tabBtnDetail').style.fontWeight        = _specPanelActive ? '400' : '600';
+  document.getElementById('tabBtnSpec').style.borderBottomColor   = _specPanelActive ? 'var(--accent)' : 'transparent';
+  document.getElementById('tabBtnSpec').style.color               = _specPanelActive ? 'var(--text1)' : 'var(--text2)';
+  document.getElementById('tabBtnSpec').style.fontWeight          = _specPanelActive ? '600' : '400';
+}
+
+function showDetailTab() { _setActiveTab('detail'); }
+
+function showSpecTab() {
+  _setActiveTab('spec');
+  if (_currentPanelId) _loadSpec(_currentPanelId);
+}
+
+function _loadSpec(id) {
+  const el = document.getElementById('dBodySpec');
+  el.innerHTML = '<p class="d-desc" style="padding:12px;opacity:.5">Loading…</p>';
+  fetch(`/api/specs/${encodeURIComponent(id)}`)
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(data => {
+      if (data.exists) _renderSpecView(id, data.spec);
+      else _renderSpecEmpty(id);
+    })
+    .catch(() => _renderSpecEmpty(id));
+}
+
+const SPEC_FIELDS = [
+  { key: 'purpose',      label: 'Purpose'      },
+  { key: 'inputs',       label: 'Inputs'       },
+  { key: 'logic',        label: 'Logic'        },
+  { key: 'outputs',      label: 'Outputs'      },
+  { key: 'dependencies', label: 'Dependencies' },
+  { key: 'trigger',      label: 'Trigger'      },
+  { key: 'notes',        label: 'Notes'        },
+];
+
+function _renderSpecEmpty(id) {
+  const el = document.getElementById('dBodySpec');
+  el.innerHTML = `
+    <div class="d-section">
+      <div class="d-label">Step 1 — Copy prompt</div>
+      <p class="d-desc" style="margin-bottom:8px">Copies the rules/code + instructions ready to paste into Claude.</p>
+      <button id="copyPromptBtn" onclick="_copyPrompt('${id.replace(/'/g,"\\'")}') "
+        style="font-size:12px;padding:6px 16px;border-radius:6px;border:1px solid var(--border2);background:var(--bg4);color:var(--text2);cursor:pointer">
+        Copy Prompt
+      </button>
+    </div>
+    <div class="d-section">
+      <div class="d-label">Step 2 — Paste response</div>
+      <p class="d-desc" style="margin-bottom:6px">Paste Claude's JSON response here and save.</p>
+      <textarea id="specPasteArea" rows="12" placeholder='{"purpose": "...", "inputs": "...", ...}'
+        style="width:100%;box-sizing:border-box;font-size:11px;line-height:1.5;padding:6px 8px;border-radius:4px;border:1px solid var(--border2);background:var(--bg4);color:var(--text1);resize:vertical;font-family:var(--font-mono);outline:none"></textarea>
+      <button onclick="_savePaste('${id.replace(/'/g,"\\'")}') "
+        style="margin-top:6px;font-size:12px;padding:6px 16px;border-radius:6px;border:1px solid #1f6feb44;background:rgba(31,111,235,.1);color:#58a6ff;cursor:pointer;font-weight:600">
+        Save Spec
+      </button>
+    </div>
+  `;
+  window._currentSpec = null;
+}
+
+function _renderSpecView(id, spec) {
+  const el = document.getElementById('dBodySpec');
+  window._currentSpec = spec;
+  const isAI = spec.source === 'ai';
+  const savedAt = spec.savedAt ? new Date(spec.savedAt).toLocaleString() : '';
+  const rows = SPEC_FIELDS.map(f => {
+    const val = (spec[f.key] || '').trim();
+    if (!val) return '';
+    return `<div class="d-section">
+      <div class="d-label">${f.label}</div>
+      <p class="d-desc" style="white-space:pre-wrap;line-height:1.6">${val.replace(/</g,'&lt;')}</p>
+    </div>`;
+  }).join('');
+  el.innerHTML = `
+    <div style="padding:10px 14px 6px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)">
+      <span style="font-size:10px;opacity:.4">${isAI ? '✦ AI generated · ' : ''}${savedAt}</span>
+      <button onclick="_renderSpecEmpty('${id.replace(/'/g,"\\'")}') "
+        style="font-size:11px;padding:3px 10px;border-radius:4px;border:1px solid var(--border2);background:var(--bg4);color:var(--text2);cursor:pointer">
+        ↺ Redo
+      </button>
+    </div>
+    ${rows}
+  `;
+}
+
+function _copyPrompt(id) {
+  const btn = document.getElementById('copyPromptBtn');
+  btn.textContent = 'Copying…';
+  fetch(`/api/specs/prompt/${encodeURIComponent(id)}`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.status === 'ok') {
+        navigator.clipboard.writeText(data.prompt).then(() => {
+          btn.textContent = 'Copied ✓';
+          btn.style.color = '#3fb950';
+          setTimeout(() => { btn.textContent = 'Copy Prompt'; btn.style.color = ''; }, 2500);
+        });
+      } else {
+        btn.textContent = 'Error — ' + (data.message || 'failed');
+        btn.style.color = '#f85149';
+      }
+    })
+    .catch(() => { btn.textContent = 'Failed'; btn.style.color = '#f85149'; });
+}
+
+function _savePaste(id) {
+  const raw = (document.getElementById('specPasteArea')?.value || '').trim();
+  if (!raw) { showToast('Nothing to save'); return; }
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    showToast('Could not parse JSON — check the pasted text'); return;
+  }
+  data.objectId = id;
+  data.savedAt  = new Date().toISOString();
+  data.source   = 'manual';
+  fetch(`/api/specs/${encodeURIComponent(id)}`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(data),
+  })
+  .then(r => r.ok ? r.json() : Promise.reject())
+  .then(() => {
+    showToast('Spec saved');
+    _renderSpecView(id, data);
+    _updateSpecTabBadge(id, true);
+  })
+  .catch(() => showToast('Save failed'));
+}
+
+function _updateSpecTabBadge(id, hasSpec) {
+  const btn = document.getElementById('tabBtnSpec');
+  btn.textContent = hasSpec ? 'Spec ✓' : 'Spec';
+  btn.style.color = hasSpec ? '#3fb950' : (_specPanelActive ? 'var(--text1)' : 'var(--text2)');
+}
+
+function _checkSpecBadge(id) {
+  document.getElementById('tabBtnSpec').textContent = 'Spec';
+  document.getElementById('tabBtnSpec').style.color = 'var(--text2)';
+  fetch(`/api/specs/${encodeURIComponent(id)}`)
+    .then(r => r.ok ? r.json() : null)
+    .then(data => { if (data?.exists) _updateSpecTabBadge(id, true); })
+    .catch(() => {});
+}
+
+function openRulesModal(id) {
+  const c = CUBES[id]; if(!c || !c.rulesText) return;
+  document.getElementById('rulesModalTitle').textContent = id + ' — Rules';
+  document.getElementById('rulesModalBody').textContent = c.rulesText;
+  document.getElementById('rulesModal').style.display = 'block';
+}
+
+function closeRulesModal() {
+  document.getElementById('rulesModal').style.display = 'none';
+}
+
+// Close modal on backdrop click
+document.getElementById('rulesModal').addEventListener('click', function(e) {
+  if (e.target === this) closeRulesModal();
+});
+
 /* ── EVENTS ─────────────────────────────────────────────────── */
 const tooltip = document.createElement('div');
-tooltip.style.cssText='position:fixed;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:7px 12px;font-size:11px;color:#e6edf3;pointer-events:none;opacity:0;transition:opacity .1s;z-index:999;max-width:200px;line-height:1.5;font-family:IBM Plex Sans,sans-serif;';
+tooltip.style.cssText='position:fixed;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:8px 13px;font-size:11px;color:#e6edf3;pointer-events:none;opacity:0;transition:opacity .1s;z-index:999;max-width:260px;max-height:320px;overflow-y:auto;line-height:1.6;font-family:IBM Plex Sans,sans-serif;';
 document.body.appendChild(tooltip);
 
 cy.on('tap','node', evt=>{
@@ -5008,7 +5553,18 @@ cy.on('tap','node', evt=>{
 cy.on('tap', evt=>{ if(evt.target===cy){closePanel();resetAll();} });
 cy.on('mouseover','node', evt=>{
   const id=evt.target.id(), c=CUBES[id];
-  tooltip.innerHTML=`<strong style="color:${COLORS[c.type]}">${id}</strong><br>${c.dims.length} dims · ${TYPE_LABEL[c.type]}`;
+  const ttColor = objectColor(id, c);
+  if (showDims && c.dims?.length) {
+    const dimList = c.dims.map(d=>`<span style="opacity:.7;font-size:10px">${d.n}</span>`).join('<br>');
+    tooltip.innerHTML=`<strong style="color:${ttColor}">${id}</strong><br>${dimList}`;
+  } else if (c.measures?.length) {
+    const rows = c.measures.map(m=>`<div style="padding:1px 0;opacity:.8;font-size:10px">${m}</div>`).join('');
+    tooltip.innerHTML=`<strong style="color:${ttColor};display:block;margin-bottom:4px">${id}</strong>`
+      + `<div style="font-size:9px;opacity:.45;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Measures (${c.measures.length})</div>`
+      + rows;
+  } else {
+    tooltip.innerHTML=`<strong style="color:${ttColor}">${id}</strong><br><span style="opacity:.5;font-size:10px">${c.dims?.length||0} dims · ${TYPE_LABEL[c.type]}</span>`;
+  }
   tooltip.style.opacity='1';
 });
 cy.on('mousemove','node', evt=>{
@@ -5031,7 +5587,356 @@ document.getElementById('searchInput').addEventListener('input', function(){
 });
 
 /* ── FILTER ─────────────────────────────────────────────────── */
-const activeFilters = new Set(['input','driver','allocation','rollup','report','recon']);
+const activeFilters = new Set(['input','driver','allocation','rollup','report','recon','python','ti']);
+let showFeeders = true;
+let showRules   = true;
+
+function toggleFeeders(btn) {
+  showFeeders = !showFeeders;
+  btn.classList.toggle('active', showFeeders);
+  cy.edges('[?feeder]').style('display', showFeeders ? 'element' : 'none');
+  showToast(showFeeders ? 'Feeder edges shown' : 'Feeder edges hidden');
+}
+
+function toggleRules(btn) {
+  showRules = !showRules;
+  btn.classList.toggle('active', showRules);
+  cy.edges('[etype = "rule_calc"]').style('display', showRules ? 'element' : 'none');
+  showToast(showRules ? 'Rule edges shown' : 'Rule edges hidden');
+}
+
+/* ── TAG HELPERS ────────────────────────────────────────────── */
+function buildTagChipsHtml(cubeId) {
+  return getTagsForCube(cubeId).map(tag => {
+    const color = TAGS.tagDefs[tag] || '#8b949e';
+    return `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:11px;background:${color}22;border:1px solid ${color}55;color:${color}">
+      ${tag}
+      <span onclick="removePanelTag('${cubeId}','${tag}')" style="cursor:pointer;opacity:.7;font-size:10px">✕</span>
+    </span>`;
+  }).join('') || '<span style="opacity:.4;font-size:11px">No tags</span>';
+}
+
+function removePanelTag(cubeId, tag) {
+  removeTagFromCube(cubeId, tag);
+  document.getElementById('tagChips').innerHTML = buildTagChipsHtml(cubeId);
+}
+
+function addTagFromInput(cubeId) {
+  const input = document.getElementById('tagInput');
+  const tag = input.value.trim();
+  if (!tag) return;
+  addTagToCube(cubeId, tag);
+  input.value = '';
+  document.getElementById('tagChips').innerHTML = buildTagChipsHtml(cubeId);
+  // refresh datalist
+  const dl = document.getElementById('tagSuggestions');
+  if (dl) dl.innerHTML = Object.keys(TAGS.tagDefs).map(t => `<option value="${t}">`).join('');
+}
+
+const _activeTagFilters = new Set();
+
+function refreshTagFilterBtn() {
+  const btn = document.getElementById('tagFilterBtn');
+  const dd  = document.getElementById('tagFilterDropdown');
+  if (!btn || !dd) return;
+
+  const usedTags = Object.keys(TAGS.tagDefs).filter(t =>
+    Object.values(TAGS.cubeTags).some(tags => tags.includes(t))
+  );
+
+  // Hide button entirely when no tags exist
+  if (!usedTags.length) {
+    btn.style.display = 'none';
+    dd.style.display  = 'none';
+    return;
+  }
+
+  btn.style.display = '';
+  const activeCount = _activeTagFilters.size;
+  btn.textContent   = activeCount ? `Tags (${activeCount}) ▾` : 'Tags ▾';
+  btn.style.borderColor  = activeCount ? '#a371f7' : '';
+  btn.style.color        = activeCount ? '#a371f7' : '';
+  btn.style.background   = activeCount ? 'rgba(163,113,247,.1)' : '';
+
+  const modBtn = document.getElementById('modulePromptBtn');
+  if (modBtn) modBtn.style.display = activeCount ? '' : 'none';
+
+  dd.innerHTML = usedTags.map(tag => {
+    const color  = TAGS.tagDefs[tag] || '#8b949e';
+    const active = _activeTagFilters.has(tag);
+    return `<div onclick="toggleTagFilter('${tag}')" style="display:flex;align-items:center;gap:8px;padding:6px 14px;cursor:pointer;transition:.1s;${active ? 'background:var(--bg4)' : ''}">
+      <span style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0"></span>
+      <span style="font-size:12px;color:${active ? color : 'var(--text2)'};font-weight:${active ? 600 : 400}">${tag}</span>
+      ${active ? `<span style="margin-left:auto;font-size:10px;color:${color}">✓</span>` : ''}
+    </div>`;
+  }).join('');
+}
+
+let _tagDropdownOpen = false;
+function toggleTagDropdown() {
+  const dd = document.getElementById('tagFilterDropdown');
+  if (!dd) return;
+  _tagDropdownOpen = !_tagDropdownOpen;
+  dd.style.display = _tagDropdownOpen ? 'block' : 'none';
+}
+
+// Close dropdown on outside click
+document.addEventListener('click', e => {
+  if (!_tagDropdownOpen) return;
+  const wrap = document.getElementById('tagFilterBtn')?.parentElement;
+  if (wrap && !wrap.contains(e.target)) {
+    _tagDropdownOpen = false;
+    const dd = document.getElementById('tagFilterDropdown');
+    if (dd) dd.style.display = 'none';
+  }
+});
+
+function toggleTagFilter(tag) {
+  if (_activeTagFilters.has(tag)) _activeTagFilters.delete(tag);
+  else _activeTagFilters.add(tag);
+  refreshTagFilterBtn();
+  if (!_activeTagFilters.size) {
+    cy.nodes().style('display', 'element');
+    cy.edges().style('display', 'element');
+  } else {
+    cy.nodes().forEach(n => {
+      const tags = n.data('tags') || [];
+      n.style('display', tags.some(t => _activeTagFilters.has(t)) ? 'element' : 'none');
+    });
+    cy.edges().forEach(e => {
+      const srcHidden = e.source().style('display') === 'none';
+      const tgtHidden = e.target().style('display') === 'none';
+      e.style('display', srcHidden && tgtHidden ? 'none' : 'element');
+    });
+  }
+}
+
+function copyModulePrompt() {
+  const btn = document.getElementById('modulePromptBtn');
+  if (!_activeTagFilters.size) return;
+  const tags = Array.from(_activeTagFilters).join(',');
+  const origText = btn.textContent;
+  btn.textContent = 'Copying…';
+  btn.style.opacity = '0.7';
+  fetch(`/api/module/prompt?tags=${encodeURIComponent(tags)}`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.status === 'ok') {
+        navigator.clipboard.writeText(data.prompt).then(() => {
+          btn.textContent = `Copied ✓ (${data.tags.join(', ')})`;
+          btn.style.opacity = '1';
+          btn.style.color = '#3fb950';
+          btn.style.borderColor = '#3fb95044';
+          setTimeout(() => {
+            btn.textContent = origText;
+            btn.style.color = '#a371f7';
+            btn.style.borderColor = '#a371f744';
+          }, 3000);
+        }).catch(() => showToast('Clipboard write failed — try in a regular browser tab'));
+      } else {
+        btn.textContent = 'Error';
+        btn.style.opacity = '1';
+        btn.style.color = '#f85149';
+        setTimeout(() => { btn.textContent = origText; btn.style.color = '#a371f7'; }, 3000);
+        showToast('Module prompt error: ' + (data.message || 'failed'));
+      }
+    })
+    .catch(() => {
+      btn.textContent = 'Failed';
+      btn.style.opacity = '1';
+      btn.style.color = '#f85149';
+      setTimeout(() => { btn.textContent = origText; btn.style.color = '#a371f7'; }, 3000);
+    });
+}
+
+let showOrphans = true;
+function toggleOrphans(btn) {
+  showOrphans = !showOrphans;
+  btn.classList.toggle('active', showOrphans);
+  cy.nodes('[?orphaned]').style('display', showOrphans ? 'element' : 'none');
+  cy.nodes('[?orphaned]').connectedEdges().style('display', showOrphans ? 'element' : 'none');
+  const count = cy.nodes('[?orphaned]').length;
+  showToast(showOrphans ? `Orphaned cubes shown (${count})` : `Orphaned cubes hidden (${count})`);
+}
+
+// ── PERFORMANCE MONITOR TOGGLE ───────────────────────────────────────────────
+function loadPmState() {
+  fetch('/api/tm1/performance-monitor')
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(data => updatePmBtn(data.enabled, data.supported))
+    .catch(() => {});
+}
+
+function updatePmBtn(enabled, supported) {
+  const btn = document.getElementById('pmToggleBtn');
+  if (!btn) return;
+  if (!supported) {
+    btn.textContent = 'PM N/A';
+    btn.classList.remove('active');
+    btn.disabled = true;
+    btn.title = 'Performance Monitor not available on this TM1 server (V12 cloud). Available on V11 on-prem.';
+    return;
+  }
+  btn.disabled = false;
+  btn.textContent = enabled ? 'PM On' : 'PM Off';
+  btn.classList.toggle('active', enabled);
+  btn.title = enabled
+    ? 'Performance Monitor ON — click to disable'
+    : 'Performance Monitor OFF — click to enable (required for RAM heatmap)';
+}
+
+function togglePerfMonitor() {
+  const btn = document.getElementById('pmToggleBtn');
+  if (btn.disabled) return;
+  const currentlyOn = btn.classList.contains('active');
+  const newState = !currentlyOn;
+  btn.textContent = 'PM ···';
+  fetch('/api/tm1/performance-monitor', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({enabled: newState}),
+  })
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(data => {
+      updatePmBtn(data.enabled, data.supported);
+      showToast(data.enabled
+        ? 'Performance Monitor enabled — wait ~1 min then Refresh from TM1'
+        : 'Performance Monitor disabled');
+    })
+    .catch(() => {
+      updatePmBtn(currentlyOn, true);
+      showToast('Could not reach TM1 to toggle Performance Monitor');
+    });
+}
+
+loadPmState();
+
+/* ── LAYOUT SAVE / LOAD ─────────────────────────────────────── */
+function saveLayout() {
+  const name = prompt('Save layout as:', 'default');
+  if (!name) return;
+  const positions = cy.nodes().map(n => ({ id: n.id(), x: Math.round(n.position('x')), y: Math.round(n.position('y')) }));
+  fetch(`/api/layouts/${encodeURIComponent(name)}`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({positions}),
+  })
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(() => { showToast(`Layout "${name}" saved`); refreshLayoutMenu(); })
+    .catch(() => showToast('Failed to save layout'));
+}
+
+function restorePositions(positions) {
+  const posMap = {};
+  positions.forEach(p => posMap[p.id] = {x: p.x, y: p.y});
+  cy.batch(() => {
+    cy.nodes().forEach(n => {
+      if (posMap[n.id()]) n.position(posMap[n.id()]);
+    });
+  });
+}
+
+async function loadLayout(name) {
+  const menu = document.getElementById('layoutMenu');
+  if (menu) menu.style.display = 'none';
+  let data;
+  try {
+    const r = await fetch(`/api/layouts/${encodeURIComponent(name)}`);
+    if (!r.ok) { showToast(`Layout "${name}" not found`); return; }
+    data = await r.json();
+  } catch (e) {
+    showToast('Network error loading layout');
+    return;
+  }
+  restorePositions(data.positions || []);
+  showToast(`Layout "${name}" loaded`);
+}
+
+function deleteLayout(name, e) {
+  e.stopPropagation();
+  if (!confirm(`Delete layout "${name}"?`)) return;
+  fetch(`/api/layouts/${encodeURIComponent(name)}`, {method: 'DELETE'})
+    .then(() => { showToast(`Layout "${name}" deleted`); refreshLayoutMenu(); })
+    .catch(() => showToast('Delete failed'));
+}
+
+function toggleLayoutMenu() {
+  const menu = document.getElementById('layoutMenu');
+  if (menu.style.display === 'none') {
+    refreshLayoutMenu(() => menu.style.display = 'block');
+  } else {
+    menu.style.display = 'none';
+  }
+}
+
+function refreshLayoutMenu(cb) {
+  fetch('/api/layouts')
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(data => {
+      const menu = document.getElementById('layoutMenu');
+      const layouts = data.layouts || [];
+      if (!layouts.length) {
+        menu.innerHTML = '<div style="padding:6px 12px;opacity:.5;font-size:12px">No saved layouts</div>';
+      } else {
+        menu.innerHTML = layouts.map(n =>
+          `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 10px;cursor:pointer;font-size:12px;gap:8px" onmouseenter="this.style.background='var(--bg3)'" onmouseleave="this.style.background=''" onclick="loadLayout('${n}')">
+            <span>${n}</span>
+            <span onclick="deleteLayout('${n}',event)" style="opacity:.4;font-size:11px;padding:0 2px" title="Delete">✕</span>
+          </div>`
+        ).join('');
+      }
+      if (cb) cb();
+    })
+    .catch(() => {});
+}
+
+// Close layout menu when clicking outside
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('layoutMenuWrap');
+  if (wrap && !wrap.contains(e.target)) {
+    document.getElementById('layoutMenu').style.display = 'none';
+  }
+});
+
+function autoLoadLayout() {
+  fetch('/api/layouts/default')
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(data => { restorePositions(data.positions || []); showToast('Layout "default" restored'); })
+    .catch(() => {});  // no saved layout yet — use dagre
+}
+
+let showRamHeatmap = false;
+function toggleRamHeatmap(btn) {
+  showRamHeatmap = !showRamHeatmap;
+  btn.classList.toggle('active', showRamHeatmap);
+  cy.nodes().forEach(n => {
+    const heat = n.data('ramHeat') || 0;
+    n.style('background-opacity', showRamHeatmap ? 0.06 + heat * 0.72 : 0.14);
+  });
+  const hasData = cy.nodes().some(n => n.data('ramHeat') > 0);
+  showToast(showRamHeatmap
+    ? (hasData ? 'RAM heatmap on — brighter = more RAM' : 'RAM heatmap on — no data yet, run extraction first')
+    : 'RAM heatmap off');
+}
+
+function toggleDimLabels(btn) {
+  showDims = !showDims;
+  btn.classList.toggle('active', showDims);
+  showToast(showDims ? 'Hover a cube to see its dimensions' : 'Dimension tooltip off');
+}
+
+let showUndocumented = true;
+function toggleUndocumented(btn) {
+  showUndocumented = !showUndocumented;
+  btn.classList.toggle('active', showUndocumented);
+  cy.nodes('[?undocumented]').style('border-color',      showUndocumented ? '#8957e5' : 'data(color)');
+  cy.nodes('[?undocumented]').style('border-width',      showUndocumented ? 1.5 : 1.5);
+  cy.nodes('[?undocumented]').style('border-style',      showUndocumented ? 'dashed' : 'solid');
+  cy.nodes('[?undocumented]').style('background-color',  showUndocumented ? 'rgba(137,87,229,0.06)' : 'data(color)');
+  const count = cy.nodes('[?undocumented]').length;
+  showToast(showUndocumented ? `Undocumented cubes highlighted (${count})` : 'Undocumented highlight off');
+}
+
 function toggleFilter(btn){
   const t = btn.dataset.type;
   if(activeFilters.has(t)){ activeFilters.delete(t); btn.classList.remove('active'); }
@@ -5076,7 +5981,7 @@ function showToast(msg){
   toastTimer = setTimeout(()=>t.classList.remove('show'), 2000);
 }
 
-cy.ready(()=>{ cy.fit(null,60); });
+cy.ready(()=>{ cy.fit(cy.elements(), 60); });
 
 /* ── THEME TOGGLE ───────────────────────────────────────────── */
 let isDark = true;
@@ -5112,8 +6017,11 @@ function applyTheme() {
     .selector('node.highlighted').style({ color: isDark ? '#e6edf3' : '#1f2328' })
     .selector('node:selected').style({ color: isDark ? '#e6edf3' : '#1f2328' })
     .selector('node.search-match').style({ color: isDark ? '#f0f6fc' : '#1f2328' })
-    .selector('edge').style({ 'line-color': edgeColor, 'target-arrow-color': arrowColor })
-    .selector('edge[?recon]').style({ 'line-color': '#d29922', 'target-arrow-color': '#d29922' })
+    .selector('edge').style({ 'line-color': '#d29922', 'target-arrow-color': '#d29922' })
+    .selector('edge[?python]').style({ 'line-color': '#1f6feb', 'target-arrow-color': '#1f6feb', 'line-style': 'dashed', 'line-dash-pattern': [4,4] })
+    .selector('edge[?ti]').style({ 'line-color': '#f78166', 'target-arrow-color': '#f78166', 'line-style': 'dashed', 'line-dash-pattern': [8,3] })
+    .selector('edge[?feeder]').style({ 'line-color': '#6e7681', 'target-arrow-color': '#6e7681', 'line-style': 'dotted', 'line-dash-pattern': [3,6], opacity: 0.4 })
+    .selector('edge[?pythonTrigger]').style({ 'line-color': '#a371f7', 'target-arrow-color': '#a371f7', 'line-style': 'solid', width: 1.8, opacity: 0.8 })
     .selector('edge.highlighted').style({ 'line-color': arrowColor })
     .update();
 
@@ -5163,7 +6071,7 @@ function applyPrefixFilter() {
   // Update sidebar count
   const count = visibleIds.size;
   document.querySelector('.sidebar-title').textContent =
-    prefix ? `Cubes (${count} · "${prefix}*")` : `Cubes (${count})`;
+    prefix ? `Objects (${count} · "${prefix}*")` : `Objects (${count})`;
 
   if (IS_LIVE && prefix) {
     // Optionally trigger a server-side filtered refresh
@@ -5255,6 +6163,7 @@ function reloadModel() {
       if (data.cubes && Object.keys(data.cubes).length > 0) {
         Object.keys(CUBES).forEach(k => delete CUBES[k]);
         Object.assign(CUBES, data.cubes);
+        window._lastMeta = data.meta;
         loadModel(CUBES, data.meta);
         const count = Object.keys(data.cubes).length;
         const ts = data.meta?.extractedAt

@@ -2,9 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<link rel="icon" href="/paw-tree/favicon.svg" type="image/svg+xml">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TM1 Workbook Tree</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='6' y='5' width='12' height='15' rx='2' fill='%23388bfd' fill-opacity='0.25' stroke='%23388bfd' stroke-width='1.5'/><line x1='9' y1='10' x2='15' y2='10' stroke='%23388bfd' stroke-width='1.2'/><line x1='9' y1='13' x2='15' y2='13' stroke='%23388bfd' stroke-width='1.2'/><line x1='9' y1='16' x2='12' y2='16' stroke='%23388bfd' stroke-width='1.2'/><rect x='14' y='14' width='12' height='13' rx='2' fill='%23a371f7' fill-opacity='0.25' stroke='%23a371f7' stroke-width='1.5'/><line x1='17' y1='19' x2='23' y2='19' stroke='%23a371f7' stroke-width='1.2'/><line x1='17' y1='22' x2='23' y2='22' stroke='%23a371f7' stroke-width='1.2'/><line x1='5' y1='8' x2='8' y2='8' stroke='%23e3b341' stroke-width='1.5'/><line x1='5' y1='14' x2='8' y2='14' stroke='%23e3b341' stroke-width='1.5'/><line x1='5' y1='20' x2='8' y2='20' stroke='%23e3b341' stroke-width='1.5'/></svg>">
+<rect x='6' y='5' width='12' height='15' rx='2' fill='%23388bfd' fill-opacity='0.25' stroke='%23388bfd' stroke-width='1.5'/><line x1='9' y1='10' x2='15' y2='10' stroke='%23388bfd' stroke-width='1.2'/><line x1='9' y1='13' x2='15' y2='13' stroke='%23388bfd' stroke-width='1.2'/><line x1='9' y1='16' x2='12' y2='16' stroke='%23388bfd' stroke-width='1.2'/><rect x='14' y='14' width='12' height='13' rx='2' fill='%23a371f7' fill-opacity='0.25' stroke='%23a371f7' stroke-width='1.5'/><line x1='17' y1='19' x2='23' y2='19' stroke='%23a371f7' stroke-width='1.2'/><line x1='17' y1='22' x2='23' y2='22' stroke='%23a371f7' stroke-width='1.2'/><line x1='5' y1='8' x2='8' y2='8' stroke='%23e3b341' stroke-width='1.5'/><line x1='5' y1='14' x2='8' y2='14' stroke='%23e3b341' stroke-width='1.5'/><line x1='5' y1='20' x2='8' y2='20' stroke='%23e3b341' stroke-width='1.5'/></svg>">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -270,6 +271,7 @@ body { display: flex; flex-direction: column; }
   <div id="drawer-header">
     <div id="drawer-title">—</div>
     <span id="drawer-type"></span>
+    <a id="drawer-paw-link" href="#" target="_blank" rel="noopener" style="display:none;font-size:11px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);color:var(--blue);text-decoration:none;background:var(--card);white-space:nowrap">Open in PAW ↗</a>
     <span id="drawer-close" onclick="closeDrawer()">×</span>
   </div>
   <div id="drawer-body">
@@ -297,6 +299,7 @@ applyTheme();
 // STATE
 let TREE         = [];
 let GROUPS       = [];
+let PAW_CONFIG   = { paw_host: '', paw_account_id: '', paw_tenant_id: '' };
 let activeGroup  = '';
 let activeCube      = '';
 let activeView      = '';
@@ -501,6 +504,14 @@ function openDrawer(node) {
   document.getElementById('detail-drawer').classList.add('open');
   document.getElementById('folder-detail').innerHTML = '';
   document.getElementById('book-detail').innerHTML   = '';
+  var pawLink = document.getElementById('drawer-paw-link');
+  var url = node.type === 'book' ? pawBookUrl(node.id) : null;
+  if (url) {
+    pawLink.href = url;
+    pawLink.style.display = '';
+  } else {
+    pawLink.style.display = 'none';
+  }
 }
 function closeDrawer() {
   document.getElementById('detail-drawer').classList.remove('open');
@@ -918,6 +929,24 @@ async function loadPAWTree() {
   } catch(e) { showError(e.message); }
 }
 
+async function loadConfig() {
+  try {
+    const res  = await fetch('/api/config');
+    const data = await res.json();
+    PAW_CONFIG = data;
+  } catch(e) { console.warn('Config load failed:', e); }
+}
+
+function pawBookUrl(bookId) {
+  if (!PAW_CONFIG.paw_host || !PAW_CONFIG.paw_account_id || !PAW_CONFIG.paw_tenant_id) return null;
+  return PAW_CONFIG.paw_host
+    + '/?accountId=' + encodeURIComponent(PAW_CONFIG.paw_account_id)
+    + '&tenantId='   + encodeURIComponent(PAW_CONFIG.paw_tenant_id)
+    + '&perspective=dashboard'
+    + '&id='         + encodeURIComponent(bookId);
+}
+
+loadConfig();
 loadGroups();
 loadCubes();
 loadPAWTree();
@@ -1025,18 +1054,20 @@ function renderDashboard() {
     + ' · not opened in 60+ days <span class="dash-section-count">' + d.stale60.length + '</span></div>';
   if (d.stale60.length) {
     html += '<table class="dash-table"><thead><tr>'
-      + '<th>Book</th><th>Location</th><th>Owner / Created by</th><th>Last opened</th><th>Last opened by</th>'
+      + '<th>Book</th><th>Location</th><th>Owner / Created by</th><th>Last opened</th><th>Last opened by</th><th></th>'
       + '</tr></thead><tbody>';
     d.stale60.forEach(function(b) {
       var staleCell = b.staleDays === null
         ? '<span class="dash-never-badge">Never opened</span>'
         : '<span class="dash-stale-badge">' + b.staleDays + 'd ago</span>';
+      var pawUrl = pawBookUrl(b.id);
       html += '<tr>'
         + '<td><span class="dash-book-name">' + (b.private ? '🔒 ' : '') + b.name + '</span></td>'
         + '<td style="color:var(--muted);font-size:11px">' + dashLocation(b) + '</td>'
         + '<td>' + (b.owner || b.createdBy || '—') + '</td>'
         + '<td>' + staleCell + '</td>'
         + '<td style="color:var(--muted)">' + (b.usedBy || '—') + '</td>'
+        + '<td>' + (pawUrl ? '<a href="' + pawUrl + '" target="_blank" rel="noopener" style="font-size:10px;color:var(--blue);white-space:nowrap;text-decoration:none">Open ↗</a>' : '') + '</td>'
         + '</tr>';
     });
     html += '</tbody></table>';
@@ -1050,15 +1081,17 @@ function renderDashboard() {
     + ' · creator not a current PAW user <span class="dash-section-count">' + d.orphaned.length + '</span></div>';
   if (d.orphaned.length) {
     html += '<table class="dash-table"><thead><tr>'
-      + '<th>Book</th><th>Location</th><th>Created by</th><th>Created</th><th>Last modified</th>'
+      + '<th>Book</th><th>Location</th><th>Created by</th><th>Created</th><th>Last modified</th><th></th>'
       + '</tr></thead><tbody>';
     d.orphaned.forEach(function(b) {
+      var pawUrl = pawBookUrl(b.id);
       html += '<tr>'
         + '<td><span class="dash-book-name">' + b.name + '</span></td>'
         + '<td style="color:var(--muted);font-size:11px">' + dashLocation(b) + '</td>'
         + '<td style="color:var(--coral)">' + (b.createdBy || '—') + '</td>'
         + '<td style="color:var(--muted)">' + (b.createdDate ? new Date(b.createdDate).toLocaleDateString() : '—') + '</td>'
         + '<td style="color:var(--muted)">' + relTime(b.modifiedDate) + '</td>'
+        + '<td>' + (pawUrl ? '<a href="' + pawUrl + '" target="_blank" rel="noopener" style="font-size:10px;color:var(--blue);white-space:nowrap;text-decoration:none">Open ↗</a>' : '') + '</td>'
         + '</tr>';
     });
     html += '</tbody></table>';
@@ -1072,14 +1105,16 @@ function renderDashboard() {
     + ' · last 7 days <span class="dash-section-count">' + d.recent7.length + '</span></div>';
   if (d.recent7.length) {
     html += '<table class="dash-table"><thead><tr>'
-      + '<th>Book</th><th>Location</th><th>Modified by</th><th>Modified</th>'
+      + '<th>Book</th><th>Location</th><th>Modified by</th><th>Modified</th><th></th>'
       + '</tr></thead><tbody>';
     d.recent7.forEach(function(b) {
+      var pawUrl = pawBookUrl(b.id);
       html += '<tr>'
         + '<td><span class="dash-book-name">' + (b.private ? '🔒 ' : '') + b.name + '</span></td>'
         + '<td style="color:var(--muted);font-size:11px">' + dashLocation(b) + '</td>'
         + '<td>' + (b.modifiedBy || '—') + '</td>'
         + '<td style="color:var(--teal)">' + relTime(b.modifiedDate) + '</td>'
+        + '<td>' + (pawUrl ? '<a href="' + pawUrl + '" target="_blank" rel="noopener" style="font-size:10px;color:var(--blue);white-space:nowrap;text-decoration:none">Open ↗</a>' : '') + '</td>'
         + '</tr>';
     });
     html += '</tbody></table>';

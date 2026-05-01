@@ -1,4 +1,6 @@
 import os
+import time
+import threading
 import requests
 from pathlib import Path
 from dotenv import load_dotenv
@@ -35,9 +37,38 @@ RestService.set_version = _patched_set_version
 RestService._construct_service_and_auth_root = _patched_construct_root
 
 # -----------------------------------------------------------------------
-# Connection functions
+# Token cache — avoids re-authenticating on every extraction call
 # -----------------------------------------------------------------------
+TOKEN_TTL = 600  # 10 minutes
+
+_token_lock = threading.Lock()
+_cached_token = None
+_token_expiry = 0
+
+
 def get_token():
+    """Return a cached TM1SessionId token, re-authenticating if expired."""
+    global _cached_token, _token_expiry
+
+    with _token_lock:
+        if _cached_token is None or time.time() > _token_expiry:
+            _cached_token = _fresh_token()
+            _token_expiry = time.time() + TOKEN_TTL
+
+    return _cached_token
+
+
+def invalidate_token():
+    """Force re-authentication on the next get_token() call.
+    Call this if TM1Service raises an auth error."""
+    global _cached_token, _token_expiry
+    with _token_lock:
+        _cached_token = None
+        _token_expiry = 0
+
+
+def _fresh_token():
+    """Authenticate and return a raw TM1SessionId cookie value."""
     cfg = TM1_CONFIG
     auth = requests.post(
         f"http://{cfg['address']}:{cfg['port']}/tm1/auth/v1/session",
@@ -51,6 +82,9 @@ def get_token():
     return token
 
 
+# -----------------------------------------------------------------------
+# Connection function
+# -----------------------------------------------------------------------
 def get_tm1_service() -> TM1Service:
     cfg = TM1_CONFIG
     token = get_token()

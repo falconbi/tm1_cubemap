@@ -13,3 +13,12 @@ __pycache__/
 .vscode/
 .idea/
 *.swp
+
+# Report builder — data at rest (financial data, never commit)
+report_builder/data.db
+report_builder/data.db-wal
+report_builder/data.db-shm
+report_builder/snapshots/
+report_builder/datasets/
+report_builder/csv/
+report_builder/pack_snapshots/
