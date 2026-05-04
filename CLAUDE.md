@@ -16,10 +16,6 @@ cd ~/apps/tm1_governance && source venv/bin/activate && python3 app.py
 # Production (Gunicorn)
 gunicorn -w 4 -b 0.0.0.0:8080 app:app
 
-# Model Builder (run in order)
-python3 build_gbl_model.py          # Global dimensions first
-python3 build_cst_model.py          # CST cubes + dimensions second
-
 # TI linting
 python3 ti_lint.py <path/to/process.ti>
 ```
@@ -110,6 +106,7 @@ Browser (http://localhost:8080)
 - **Private views API** — `GET /Cubes('{cube}')/PrivateViews` is hard-scoped to the authenticated user. `TM1-Impersonate` header exists (TM1 11.1.0+) but only works with CAM/LDAP auth — silently ignored on V12 OAuth (client_id/client_secret) auth. On V11 with traditional auth, impersonation should work: pass `TM1-Impersonate: <username>` on the `/auth/v1/session` POST, then query PrivateViews with the returned session. Confirmed non-working on V12 via `ActiveUser` — always returns admin regardless of header. Test on V11 when available.
 - **Private subsets API** — same hard-scoping and same impersonation limitation as private views.
 - **PAW private books** — fully visible to admin. Walk `/users/{uuid}/` to enumerate all users' private books. Owner resolved via `system_properties.created_user_pretty_name`. Confirmed working with test user (testpaw / "test tester"). This IS in scope for governance tooling.
+- **Python ETL nodes on CubeMap** — `cube_map/python_sources.json` is a manually maintained registry. Refresh re-scans whatever is listed there — it does NOT auto-detect retired scripts. When you stop using a Python ETL script, remove it from `python_sources.json` or it will keep appearing on the map. TI processes and rules disappear automatically on refresh; Python scripts do not.
 
 ---
 
@@ -177,58 +174,6 @@ User picks a cube + measure name → system traces back through rule formulas re
 - [ ] Full tree: Folder → Workbook → Views + Action Buttons + Websheets
 - [ ] Cross-tool link: click cube/view reference in PAW Tree → highlight in CubeMap
 
-### ABC Apportionment Engine
-
-A Python script (outside this repo — location TBC) implements **reciprocal / simultaneous ABC cost allocation** using fixed-point iteration to solve a Leontief Input-Output system.
-
-Script should be relocated into `model_builder/abc/` and documented here once found.
-
-#### Theoretical Model
-
-**Core structure:** Cost Pools and Activities modelled as nodes in a directed weighted graph. Allocation drivers are weighted edges. The system finds the equilibrium state where all reciprocal flows have settled.
-
-**Mathematical formulation (Leontief Input-Output Model):**
-
-```text
-b = (I - A)⁻¹ × d
-
-Where:
-  b = final fully-loaded costs (what we solve for)
-  d = initial costs (direct assignment from Stage 1/2)
-  A = allocation matrix (driver percentages between nodes)
-  I = identity matrix
-```
-
-**Solution method — Fixed-Point Iteration** (rather than direct matrix inversion):
-
-```text
-bₙ₊₁ = d + A × bₙ   (repeat until convergence)
-```
-
-Converges because allocation percentages are bounded (≤ 1 per source) and settled amounts remove mass from the loop — a contraction mapping.
-
-#### Multi-Stage Decomposition
-
-```text
-Account → Pool          (direct assignment)
-Pool    → Pool          (reciprocal loop — fixed-point iteration)
-Pool    → Activity
-Activity → Activity     (reciprocal loop — fixed-point iteration)
-Activity → Service Line (final allocation)
-```
-
-Each reciprocal stage independently solves a closed system of interdependent allocations.
-
-#### Why This Is Advanced
-
-Most costing systems use **Step-Down** — costs flow in one direction only, feedback loops ignored.
-
-This engine implements **true Reciprocal Allocation**:
-
-- Pools allocate to pools; activities allocate to activities
-- All feedback loops fully captured
-- Mathematically equivalent to an Input-Output economic model
-- Produces fully loaded costs at equilibrium: *"costs circulate through a network of pools and activities until they settle into a stable equilibrium"*
 
 ### Health Monitor
 

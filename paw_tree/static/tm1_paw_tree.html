@@ -210,7 +210,7 @@ body { display: flex; flex-direction: column; }
   <div class="stat"><span class="stat-val" id="stat-folders" style="color:var(--amber)">0</span><span class="stat-lbl">folders</span></div>
   <div class="stat"><span class="stat-val" id="stat-books"   style="color:var(--blue)">0</span><span class="stat-lbl">books</span></div>
   <div class="stat"><span class="stat-val" id="stat-pages"   style="color:var(--muted)">0</span><span class="stat-lbl">pages</span></div>
-  <div class="live-pill"><span class="live-dot">●</span><span>192.168.1.223 · PAW</span></div>
+  <div class="live-pill"><span class="live-dot">●</span><span id="pawHostPill">PAW</span></div>
   <div class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle light / dark mode">
     <span id="themeIcon">🌙</span>
     <div class="theme-track" id="themeTrack"><div class="theme-thumb"></div></div>
@@ -934,6 +934,10 @@ async function loadConfig() {
     const res  = await fetch('/api/config');
     const data = await res.json();
     PAW_CONFIG = data;
+    if (data.paw_host) {
+      const host = data.paw_host.replace(/^https?:\/\//, '');
+      document.getElementById('pawHostPill').textContent = host + ' · PAW';
+    }
   } catch(e) { console.warn('Config load failed:', e); }
 }
 

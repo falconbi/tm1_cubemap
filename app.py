@@ -764,6 +764,58 @@ def api_spec_prompt(obj_id):
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
+@app.route('/api/script/python', methods=['GET'])
+def api_script_python():
+    """Return the source of a registered Python ETL script.
+    Validates path against python_sources.json — never serves arbitrary files.
+    """
+    path_param = request.args.get('path', '').strip()
+    if not path_param:
+        return jsonify({'status': 'error', 'message': 'path required'}), 400
+
+    sources_file = BASE_DIR / 'cube_map' / 'python_sources.json'
+    if not sources_file.exists():
+        return jsonify({'status': 'error', 'message': 'python_sources.json not found'}), 404
+
+    registered = {s['path'] for s in json.loads(sources_file.read_text()) if 'path' in s}
+    if path_param not in registered:
+        return jsonify({'status': 'error', 'message': 'Script not in registered sources'}), 403
+
+    p = Path(path_param)
+    if not p.exists():
+        return jsonify({'status': 'error', 'message': 'File not found on disk'}), 404
+
+    return jsonify({'status': 'ok', 'content': p.read_text(encoding='utf-8'), 'path': path_param})
+
+
+@app.route('/api/script/ti', methods=['GET'])
+def api_script_ti():
+    """Return the code sections of a TM1 TI process (Prolog + Metadata + Data + Epilog)."""
+    process_name = request.args.get('name', '').strip()
+    if not process_name:
+        return jsonify({'status': 'error', 'message': 'name required'}), 400
+    try:
+        from core.tm1_connect import get_session
+        s = get_session()
+        url = f"{s.base_url}/Processes('{process_name}')"
+        r = s.get(url)
+        r.raise_for_status()
+        p = r.json()
+        sections = {
+            'Prolog':   p.get('PrologProcedure', ''),
+            'Metadata': p.get('MetadataProcedure', ''),
+            'Data':     p.get('DataProcedure', ''),
+            'Epilog':   p.get('EpilogProcedure', ''),
+        }
+        content = '\n\n'.join(
+            f'# ── {sec} ──────────────────────\n{code}'
+            for sec, code in sections.items() if code.strip()
+        )
+        return jsonify({'status': 'ok', 'content': content, 'name': process_name})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
 def _build_module_prompt(tags: list) -> str:
     """Assemble a dense AI-optimised bundle for all objects sharing the given tags."""
     if not MODEL_FILE.exists():

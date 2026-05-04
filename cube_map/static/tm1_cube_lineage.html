@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <link rel="icon" href="/cube-map/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TM1 CubeMap</title>
 <script>
@@ -4265,6 +4268,24 @@ module.exports = __WEBPACK_EXTERNAL_MODULE__4__;
   --green:#1a7f37; --purple:#6e40c9; --amber:#9a6700;
   --orange:#bc4c00; --blue:#0550ae; --gray:#6e7781; --red:#cf222e;
 }
+/* ── TM1 rules syntax highlight ─────────────────────────────── */
+.r-comment  { color:#6e7681; font-style:italic; }
+.r-feeders  { color:#e36209; font-weight:600; letter-spacing:.04em; }
+.r-db       { color:#d2a8ff; font-weight:600; }
+.r-string   { color:#a5d6ff; }
+.r-kw       { color:#ff7b72; font-weight:600; }
+.r-num      { color:#79c0ff; }
+.r-op       { color:#ffa657; }
+.r-match    { background:rgba(210,168,255,.18); border-radius:2px; outline:1px solid rgba(210,168,255,.3); }
+:root.light .r-comment { color:#6e7781; }
+:root.light .r-feeders { color:#bc4c00; }
+:root.light .r-db      { color:#6e40c9; }
+:root.light .r-string  { color:#0550ae; }
+:root.light .r-kw      { color:#cf222e; }
+:root.light .r-num     { color:#0550ae; }
+:root.light .r-op      { color:#953800; }
+:root.light .r-match   { background:rgba(110,64,201,.12); outline:1px solid rgba(110,64,201,.25); }
+#rulesModalBody { tab-size:4; }
 .theme-toggle{
   display:flex;align-items:center;gap:7px;margin-left:6px;
   background:var(--bg3);border:1px solid var(--border);
@@ -4635,7 +4656,6 @@ body{font-family:var(--font-ui);background:var(--bg);color:var(--text);display:f
         <div class="detail-name" id="dName">—</div>
         <span class="detail-type" id="dType"></span>
       </div>
-      <a id="pawLink" href="#" target="_blank" rel="noopener" style="display:none;font-size:11px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);color:#58a6ff;text-decoration:none;background:var(--bg4);white-space:nowrap">Open in PAW ↗</a>
       <button class="close-btn" onclick="closePanel()">×</button>
     </div>
     <div style="display:flex;border-bottom:1px solid var(--border);padding:0 14px;gap:0">
@@ -4654,7 +4674,10 @@ body{font-family:var(--font-ui);background:var(--bg);color:var(--text);display:f
   <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(860px,92vw);max-height:82vh;display:flex;flex-direction:column;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;overflow:hidden;">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0;">
       <span id="rulesModalTitle" style="font-size:13px;font-weight:600;color:var(--text);font-family:var(--font-mono)"></span>
-      <button onclick="closeRulesModal()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px;">×</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button id="rulesModalFullBtn" onclick="showFullRulesFromModal()" style="display:none;font-size:11px;padding:3px 10px;border-radius:4px;border:1px solid var(--border2);background:var(--bg4);color:var(--text2);cursor:pointer;">Full rules</button>
+        <button onclick="closeRulesModal()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px;">×</button>
+      </div>
     </div>
     <pre id="rulesModalBody" style="margin:0;padding:16px 18px;overflow:auto;font-size:12px;line-height:1.6;font-family:var(--font-mono);color:var(--text);white-space:pre-wrap;word-break:break-word;flex:1;"></pre>
   </div>
@@ -4945,13 +4968,6 @@ fetch('/api/config')
   .then(data => { PAW_CONFIG = data; })
   .catch(() => {});
 
-function pawModelingUrl() {
-  if (!PAW_CONFIG.paw_host || !PAW_CONFIG.paw_account_id || !PAW_CONFIG.paw_tenant_id) return null;
-  return PAW_CONFIG.paw_host
-    + '/?accountId=' + encodeURIComponent(PAW_CONFIG.paw_account_id)
-    + '&tenantId='   + encodeURIComponent(PAW_CONFIG.paw_tenant_id)
-    + '&perspective=modeling';
-}
 
 // Try to load live model from API; fall back to embedded CUBES
 fetch('/api/model')
@@ -5095,16 +5111,8 @@ function selectCube(id){
 }
 
 /* ── PANEL ──────────────────────────────────────────────────── */
-function setPawLink() {
-  const link = document.getElementById('pawLink');
-  const url = pawModelingUrl();
-  if (url) { link.href = url; link.style.display = ''; }
-  else { link.style.display = 'none'; }
-}
-
 function openPythonPanel(id) {
   const c = CUBES[id]; if(!c) return;
-  setPawLink();
   document.getElementById('dName').textContent = id;
   const dt = document.getElementById('dType');
   dt.textContent = TYPE_LABEL['python'];
@@ -5121,7 +5129,12 @@ function openPythonPanel(id) {
     <div class="d-section">
       <div class="d-label">Description</div>
       <p class="d-desc">${c.desc || 'Python ETL script'}</p>
-      ${c.scriptPath ? `<p class="d-desc" style="font-family:var(--font-mono);font-size:11px;opacity:.6;margin-top:4px">${c.scriptPath}</p>` : ''}
+      ${c.scriptPath ? `
+        <p class="d-desc" style="font-family:var(--font-mono);font-size:11px;opacity:.6;margin-top:4px">${c.scriptPath}</p>
+        <button onclick="viewPythonScript('${c.scriptPath.replace(/'/g,"\\'")}')"
+          style="margin-top:6px;font-size:11px;padding:3px 10px;border-radius:4px;border:1px solid #1f6feb44;background:rgba(31,111,235,.08);color:#58a6ff;cursor:pointer">
+          View Script
+        </button>` : ''}
     </div>
     <div class="d-section" id="tagSection">
       <div class="d-label">Tags</div>
@@ -5149,7 +5162,6 @@ function openPythonPanel(id) {
 
 function openTiPanel(id) {
   const c = CUBES[id]; if(!c) return;
-  setPawLink();
   document.getElementById('dName').textContent = id;
   const dt = document.getElementById('dType');
   dt.textContent = TYPE_LABEL['ti'];
@@ -5166,6 +5178,10 @@ function openTiPanel(id) {
     <div class="d-section">
       <div class="d-label">Description</div>
       <p class="d-desc">${c.desc || 'TI Process'}</p>
+      <button onclick="viewTiScript('${id.replace(/'/g,"\\'")}')"
+        style="margin-top:6px;font-size:11px;padding:3px 10px;border-radius:4px;border:1px solid #f7816644;background:rgba(247,129,102,.08);color:#f78166;cursor:pointer">
+        View Script
+      </button>
     </div>
     <div class="d-section" id="tagSection">
       <div class="d-label">Tags</div>
@@ -5189,6 +5205,57 @@ function openTiPanel(id) {
     </div>
   `;
   _currentPanelId = id; showDetailTab(); _checkSpecBadge(id); document.getElementById('detailPanel').classList.add('open');
+}
+
+function viewPythonScript(scriptPath) {
+  document.getElementById('rulesModalTitle').textContent = scriptPath.split('/').pop() + ' — Python';
+  _setModalBody('<span style="opacity:.5;font-size:11px">Loading…</span>');
+  document.getElementById('rulesModalFullBtn').style.display = 'none';
+  document.getElementById('rulesModal').style.display = 'block';
+  _rulesModalFullCube = null;
+  fetch('/api/script/python?path=' + encodeURIComponent(scriptPath))
+    .then(r => r.json())
+    .then(data => {
+      if (data.status !== 'ok') throw new Error(data.message);
+      _setModalBody(highlightPython(data.content));
+    })
+    .catch(e => _setModalBody(_esc('Error: ' + e.message)));
+}
+
+function viewTiScript(processName) {
+  document.getElementById('rulesModalTitle').textContent = processName + ' — TI Script';
+  _setModalBody('<span style="opacity:.5;font-size:11px">Loading from TM1…</span>');
+  document.getElementById('rulesModalFullBtn').style.display = 'none';
+  document.getElementById('rulesModal').style.display = 'block';
+  _rulesModalFullCube = null;
+  fetch('/api/script/ti?name=' + encodeURIComponent(processName))
+    .then(r => r.json())
+    .then(data => {
+      if (data.status !== 'ok') throw new Error(data.message);
+      _setModalBody(highlightTm1Rules(data.content));
+    })
+    .catch(e => _setModalBody(_esc('Error: ' + e.message)));
+}
+
+function highlightPython(text) {
+  return text.split('\n').map(raw => {
+    let line = _esc(raw);
+    const trimmed = line.trim();
+    if (trimmed.startsWith('#')) return `<span class="r-comment">${line}</span>`;
+    // Strings (triple-quote not handled — single line only)
+    line = line.replace(/(""".*?"""|'''.*?'''|"[^"]*"|'[^']*')/g, `<span class="r-string">$1</span>`);
+    // Keywords
+    line = line.replace(/\b(def|class|import|from|return|if|elif|else|for|while|with|try|except|finally|raise|in|not|and|or|is|None|True|False|lambda|yield|pass|break|continue|async|await)\b/g,
+      `<span class="r-kw">$1</span>`);
+    // Built-ins / common
+    line = line.replace(/\b(print|len|range|enumerate|zip|map|filter|list|dict|set|tuple|str|int|float|bool|open|type|isinstance)\b/g,
+      `<span class="r-db">$1</span>`);
+    // Numbers
+    line = line.replace(/(?<![a-zA-Z_])(\b\d+\.?\d*\b)/g, `<span class="r-num">$1</span>`);
+    // Decorators
+    line = line.replace(/(@\w+)/g, `<span class="r-feeders">$1</span>`);
+    return line;
+  }).join('\n');
 }
 
 function buildViewsSection(cubeId, views) {
@@ -5232,7 +5299,6 @@ function openPanel(id){
   const c = CUBES[id]; if(!c) return;
   if(c.type === 'python') { openPythonPanel(id); return; }
   if(c.type === 'ti')     { openTiPanel(id);     return; }
-  setPawLink();
   document.getElementById('dName').textContent = id;
 
   const dt = document.getElementById('dType');
@@ -5525,15 +5591,119 @@ function _checkSpecBadge(id) {
     .catch(() => {});
 }
 
+let _rulesModalFullCube = null;
+
+function _esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function highlightTm1Rules(text, highlightCube) {
+  const cubePat = highlightCube
+    ? new RegExp(_esc(highlightCube).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi')
+    : null;
+
+  return text.split('\n').map(raw => {
+    let line = _esc(raw);
+    const trimmed = line.trim();
+
+    // Full-line comment
+    if (trimmed.startsWith('#'))
+      return `<span class="r-comment">${line}</span>`;
+
+    // FEEDERS; separator line
+    if (/^\s*FEEDERS\s*;/i.test(raw))
+      return `<span class="r-feeders">${line}</span>`;
+
+    // Quoted strings first (cube + element names) — before keyword pass
+    line = line.replace(/'([^']*)'/g, `<span class="r-string">'$1'</span>`);
+
+    // DB( — the key function
+    line = line.replace(/\bDB\s*\(/gi, `<span class="r-db">DB(</span>`);
+
+    // TM1 keywords — longer alternatives first to avoid partial matches (ELSEIF before ELSE, ENDIF before END)
+    line = line.replace(/\b(ELSEIF|ENDIF|CONTINUE|WHILE|ELSE|STET|SKIP|IF|END)\b/gi,
+      `<span class="r-kw">$1</span>`);
+
+    // Numbers
+    line = line.replace(/(?<![a-zA-Z'"-])(\b\d+\.?\d*\b)/g, `<span class="r-num">$1</span>`);
+
+    // Assignment = — exclude matches inside already-inserted span attributes (class= has \w before =)
+    line = line.replace(/(?<![<=!\w])=(?![=>"'])/g, `<span class="r-op">=</span>`);
+
+    // Highlight the specific cube name if provided
+    if (cubePat) {
+      line = line.replace(cubePat, m => `<span class="r-match">${m}</span>`);
+    }
+
+    return line;
+  }).join('\n');
+}
+
+function _setModalBody(html) {
+  document.getElementById('rulesModalBody').innerHTML = html;
+}
+
 function openRulesModal(id) {
   const c = CUBES[id]; if(!c || !c.rulesText) return;
+  _rulesModalFullCube = null;
   document.getElementById('rulesModalTitle').textContent = id + ' — Rules';
-  document.getElementById('rulesModalBody').textContent = c.rulesText;
+  _setModalBody(highlightTm1Rules(c.rulesText));
+  document.getElementById('rulesModalFullBtn').style.display = 'none';
   document.getElementById('rulesModal').style.display = 'block';
+}
+
+function openEdgeModal(src, tgt, etype, edata) {
+  // Python/TI edges — open the node panel for the script node
+  if (edata.python || edata.ti) {
+    const scriptNode = (CUBES[src]?.type === 'python' || CUBES[src]?.type === 'ti') ? src
+                     : (CUBES[tgt]?.type === 'python' || CUBES[tgt]?.type === 'ti') ? tgt : null;
+    if (scriptNode) { selectCube(scriptNode); return; }
+  }
+
+  // Rule/feeder edges — show matching lines from the target cube's rules
+  const c = CUBES[tgt];
+  if (!c?.rulesText) { showToast('No rules text for this edge'); return; }
+
+  const splitIdx = c.rulesText.search(/FEEDERS\s*;/i);
+  const calcSection   = splitIdx >= 0 ? c.rulesText.slice(0, splitIdx) : c.rulesText;
+  const feederSection = splitIdx >= 0 ? c.rulesText.slice(splitIdx)    : '';
+  const section = etype === 'rule_feeder' ? feederSection : calcSection;
+
+  const srcLower = src.toLowerCase();
+  const lines    = section.split('\n');
+  const excerpts = [];
+  lines.forEach((line, i) => {
+    if (line.toLowerCase().includes(srcLower)) {
+      const s = Math.max(0, i - 2), e = Math.min(lines.length - 1, i + 2);
+      excerpts.push(lines.slice(s, e + 1).join('\n'));
+    }
+  });
+
+  const etypeLabel = etype === 'rule_feeder' ? 'Feeder' : 'Calc';
+  _rulesModalFullCube = tgt;
+  document.getElementById('rulesModalTitle').textContent = `${tgt}  ←  ${src}  [${etypeLabel}]`;
+  const bodyHtml = excerpts.length
+    ? excerpts.map(ex => highlightTm1Rules(ex, src)).join(
+        `\n<span style="opacity:.25">${'─'.repeat(40)}</span>\n`)
+    : _esc(`No lines found referencing '${src}' in the ${etypeLabel.toLowerCase()} section.`);
+  _setModalBody(bodyHtml);
+  document.getElementById('rulesModalFullBtn').style.display = '';
+  document.getElementById('rulesModal').style.display = 'block';
+}
+
+function showFullRulesFromModal() {
+  if (!_rulesModalFullCube) return;
+  const c = CUBES[_rulesModalFullCube];
+  if (!c?.rulesText) return;
+  document.getElementById('rulesModalTitle').textContent = _rulesModalFullCube + ' — Full Rules';
+  _setModalBody(highlightTm1Rules(c.rulesText));
+  document.getElementById('rulesModalFullBtn').style.display = 'none';
+  _rulesModalFullCube = null;
 }
 
 function closeRulesModal() {
   document.getElementById('rulesModal').style.display = 'none';
+  _rulesModalFullCube = null;
 }
 
 // Close modal on backdrop click
@@ -5549,6 +5719,10 @@ document.body.appendChild(tooltip);
 cy.on('tap','node', evt=>{
   const id = evt.target.id();
   selectCube(id);
+});
+cy.on('tap','edge', evt=>{
+  const e = evt.target;
+  openEdgeModal(e.data('source'), e.data('target'), e.data('etype'), e.data());
 });
 cy.on('tap', evt=>{ if(evt.target===cy){closePanel();resetAll();} });
 cy.on('mouseover','node', evt=>{

@@ -14,6 +14,15 @@ __pycache__/
 .idea/
 *.swp
 
+# Generated model cache — re-extracted from TM1 on Refresh
+cube_map/tm1_model.json
+
+# User-specific saved layouts
+cube_map/layouts/*.json
+
+# SSL certs (mkcert local dev)
+*.pem
+
 # Report builder — data at rest (financial data, never commit)
 report_builder/data.db
 report_builder/data.db-wal
