@@ -82,15 +82,6 @@ def favicon():
 def favicon_cube_map():
     return send_from_directory(str(BASE_DIR / 'cube_map' / 'static'), 'favicon.svg', mimetype='image/svg+xml')
 
-@app.route('/paw-tree/favicon.svg')
-def favicon_paw_tree():
-    return send_from_directory(str(BASE_DIR / 'paw_tree' / 'static'), 'favicon.svg', mimetype='image/svg+xml')
-
-@app.route('/health-monitor/favicon.svg')
-def favicon_health_monitor():
-    return send_from_directory(str(BASE_DIR / 'health_monitor' / 'static'), 'favicon.svg', mimetype='image/svg+xml')
-
-
 @app.route('/')
 def index():
     """Serve the CubeMap HTML diagram."""
@@ -100,24 +91,6 @@ def index():
     resp = send_from_directory(str(static_dir), 'tm1_cube_lineage.html')
     resp.headers['Cache-Control'] = 'no-store'
     return resp
-
-
-@app.route('/workbook-tree')
-def workbook_tree():
-    """Serve the PAW Workbook Tree governance explorer."""
-    static_dir = BASE_DIR / 'paw_tree' / 'static'
-    if not (static_dir / 'tm1_paw_tree.html').exists():
-        abort(404, 'paw_tree/static/tm1_paw_tree.html not found')
-    return send_from_directory(str(static_dir), 'tm1_paw_tree.html')
-
-
-@app.route('/health-monitor')
-def health_monitor():
-    """Serve the Health Monitor dashboard."""
-    static_dir = BASE_DIR / 'health_monitor' / 'static'
-    if not (static_dir / 'tm1_health_monitor.html').exists():
-        abort(404, 'health_monitor/static/tm1_health_monitor.html not found')
-    return send_from_directory(str(static_dir), 'tm1_health_monitor.html')
 
 
 @app.route('/api/model')
@@ -439,13 +412,7 @@ def api_tm1_mdx():
 @app.route('/api/config')
 def api_config():
     """Return client-safe config values needed by the frontend."""
-    from dotenv import load_dotenv
-    load_dotenv(BASE_DIR / '.env')
-    return jsonify({
-        'paw_host':       os.environ.get('PAW_HOST', ''),
-        'paw_account_id': os.environ.get('PAW_ACCOUNT_ID', ''),
-        'paw_tenant_id':  os.environ.get('PAW_TENANT_ID', ''),
-    })
+    return jsonify({})
 
 
 @app.route('/api/groups')
@@ -456,165 +423,6 @@ def api_groups():
         return jsonify({'groups': []})
     with open(groups_file, encoding='utf-8') as f:
         return jsonify(json.load(f))
-
-
-@app.route('/api/paw/tree')
-def api_paw_tree():
-    try:
-        from core.paw_connect import get_paw_session, get_asset_by_id, PAW_CONFIG
-        from urllib.parse import quote
-        import json as _json
-
-        session = get_paw_session()
-        csrf    = session.cookies.get('ba-sso-csrf', '')
-        headers = {'ba-sso-authenticity': csrf}
-        paw     = PAW_CONFIG['paw_host']
-
-        def encode_path(path):
-            return quote(quote(path, safe=''), safe='')
-
-        def extract_tabs(content):
-            tabs = []
-            if not content or 'layout' not in content:
-                return tabs
-            def walk(items, tab_name=None):
-                for item in items:
-                    if item.get('type') == 'container':
-                        name = item.get('title',{}).get('translationTable',{}).get('Default','Tab')
-                        walk(item.get('items',[]), name)
-                    else:
-                        pa  = item.get('features',{}).get('PAProperties',{})
-                        tm1 = pa.get('tm1',{})
-                        if tm1.get('cube') and tab_name:
-                            if not any(t['name']==tab_name for t in tabs):
-                                tabs.append({'name':tab_name,'type':'Cube View',
-                                    'server':tm1.get('server',''),'cube':tm1.get('cube',''),'view':tm1.get('view','')})
-                        walk(item.get('items',[]), tab_name)
-            walk(content.get('layout',{}).get('items',[]))
-            if not tabs:
-                for item in content.get('layout',{}).get('items',[]):
-                    if item.get('type') == 'container':
-                        tabs.append({'name':item.get('title',{}).get('translationTable',{}).get('Default','Tab'),
-                            'type':'View','server':'','cube':'','view':''})
-            return tabs
-
-        def build_node(asset, with_content=False, private=False, owner=''):
-            sp = asset.get('system_properties',{})
-            node = {
-                'id':asset['id'],'name':asset['name'],'path':asset['path'],
-                'type':'book' if asset['type'] in ('dashboard','workbench') else 'folder',
-                'assetType':asset['type'],'state':asset.get('state',''),
-                'createdBy':sp.get('created_user_pretty_name',''),
-                'createdDate':sp.get('created_date',''),
-                'modifiedBy':sp.get('modified_user_pretty_name',''),
-                'modifiedDate':sp.get('modified_date',''),
-                'usedBy':sp.get('used_user_pretty_name',''),
-                'usedDate':sp.get('used_date',''),
-                'permissions':sp.get('permissions',[]),
-                'version':asset.get('custom_properties',{}).get('version',''),
-                'description':asset.get('description',''),
-                'private':private,
-                'owner':owner,
-            }
-            if with_content:
-                full = get_asset_by_id(session, asset['id'], expand_content=True)
-                node['tabs'] = extract_tabs(full.get('content',{}))
-            return node
-
-        def walk_folder(path, private=False, owner=''):
-            encoded = encode_path(path)
-            try:
-                r = session.get(f"{paw}/pacontent/v1/Assets(path='{encoded}')/Assets", headers=headers)
-                r.raise_for_status()
-            except Exception as exc:
-                log.warning(f'walk_folder {path!r} failed: {exc}')
-                return []
-            children = []
-            for asset in r.json().get('value', []):
-                if asset['type'] == 'folder':
-                    node = build_node(asset, private=private, owner=owner)
-                    node['children'] = walk_folder(asset['path'], private=private, owner=owner)
-                    children.append(node)
-                else:
-                    node = build_node(asset, with_content=True, private=private, owner=owner)
-                    node['children'] = []
-                    children.append(node)
-            return children
-
-        tree = [{'id':'f-shared','type':'folder','name':'Shared Content','path':'/shared',
-                 'system':True,'createdBy':'','modifiedDate':'','private':False,'owner':'',
-                 'description':'Team content shared across all users.',
-                 'children':walk_folder('/shared')}]
-
-        # Walk /users to discover private user folders
-        try:
-            encoded_users = encode_path('/users')
-            r = session.get(f"{paw}/pacontent/v1/Assets(path='{encoded_users}')/Assets", headers=headers)
-            r.raise_for_status()
-            private_children = []
-            for user_asset in r.json().get('value', []):
-                if user_asset['type'] != 'folder':
-                    continue
-                sp_u = user_asset.get('system_properties', {})
-                username = (sp_u.get('created_user_pretty_name', '') or
-                            user_asset.get('name', user_asset['path'].split('/')[-1]))
-                log.info(f'Walking private folder for user: {username}')
-                children = walk_folder(user_asset['path'], private=True, owner=username)
-                if children:
-                    user_node = build_node(user_asset, private=True, owner=username)
-                    user_node['children'] = children
-                    private_children.append(user_node)
-            if private_children:
-                tree.append({
-                    'id':'f-private','type':'folder','name':'Private Content','path':'/users',
-                    'system':True,'createdBy':'','modifiedDate':'','private':False,'owner':'',
-                    'description':'Private books belonging to individual users.',
-                    'children':private_children,
-                })
-                log.info(f'Private folders: {len(private_children)} user(s) with content')
-        except Exception as e:
-            log.warning(f'Private folders walk skipped: {e}')
-
-        log.info(f"PAW tree built successfully")
-        return jsonify({'status':'ok','tree':tree})
-
-    except Exception as e:
-        log.error(f'PAW tree error: {e}')
-        return jsonify({'status':'error','message':str(e)}), 500
-
-
-@app.route('/api/paw/users')
-def api_paw_users():
-    """Return all PAW users with their display names, sourced from /users folder assets."""
-    try:
-        from core.paw_connect import get_paw_session, get_folder_assets
-
-        session = get_paw_session()
-        user_assets = get_folder_assets(session, '/users')
-
-        users = []
-        for asset in user_assets:
-            if asset['type'] != 'folder':
-                continue
-            sp = asset.get('system_properties', {})
-            display_name = (
-                sp.get('created_user_pretty_name', '')
-                or asset.get('name', '')
-                or asset['path'].split('/')[-1]
-            )
-            users.append({
-                'id':          asset['id'],
-                'path':        asset['path'],
-                'displayName': display_name,
-            })
-
-        users.sort(key=lambda u: u['displayName'].lower())
-        log.info(f'PAW users: {len(users)} found')
-        return jsonify({'users': users})
-
-    except Exception as e:
-        log.error(f'PAW users error: {e}')
-        return jsonify({'error': str(e)}), 500
 
 
 # ── Functional Specs ─────────────────────────────────────────────────────────
@@ -951,9 +759,7 @@ if __name__ == '__main__':
     log.info(f'  Model file:   {MODEL_FILE}')
     log.info(f'  Model cached: {"✅ yes" if MODEL_FILE.exists() else "⚠️  no — refresh to extract"}')
     log.info('══════════════════════════════════════════')
-    log.info('  Open: http://localhost:8082               (Cube Lineage)')
-    log.info('  Open: http://localhost:8082/workbook-tree (Workbook Tree)')
-    log.info('  API:  http://localhost:8082/api/paw/tree  (PAW Live Data)')
+    log.info('  Open: http://localhost:8082')
     log.info('══════════════════════════════════════════')
     cert = Path('localhost+2.pem')
     key  = Path('localhost+2-key.pem')

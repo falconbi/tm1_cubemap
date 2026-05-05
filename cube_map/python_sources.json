@@ -1,9 +1,5 @@
 [
   {
-    "path": "/home/jdlove/apps/tm1_apportionment/etl/load_gl.py",
-    "label": "ETL — Load GL"
-  },
-  {
     "path": "/home/jdlove/apps/tm1_apportionment/etl/run_apportionment.py",
     "label": "ETL — Run Apportionment"
   },
