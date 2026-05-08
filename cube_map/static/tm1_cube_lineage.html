@@ -5029,15 +5029,13 @@ fetch('/api/model')
     Object.keys(CUBES).forEach(k => delete CUBES[k]);
     Object.assign(CUBES, data.cubes || {});
     window._lastMeta = data.meta;
-    // Load tags then layout, then render
-    fetch('/api/tags').then(r => r.ok ? r.json() : {tagDefs:{}, cubeTags:{}})
-      .then(tags => {
-        TAGS = tags;
-        _tagPaletteIdx = Object.keys(tags.tagDefs).length;
-        refreshTagFilterBtn();
-        refreshSidebarTagSelect();
-        return fetch('/api/layouts/default').then(r => r.ok ? r.json() : Promise.reject()).catch(() => null);
-      })
+    // Load tags from model _tags (embedded during refresh) then layout, then render
+    const rawTags = data._tags || { tagDefs: {}, cubeTags: {} };
+    TAGS = rawTags;
+    _tagPaletteIdx = Object.keys(rawTags.tagDefs || {}).length;
+    refreshTagFilterBtn();
+    refreshSidebarTagSelect();
+    fetch('/api/layouts/default').then(r => r.ok ? r.json() : Promise.reject()).catch(() => null)
       .then(layout => {
         loadModel(CUBES, window._lastMeta, layout?.positions || []);
         showToast(layout ? 'Live model loaded — layout "default" restored' : 'Live model loaded from /api/model');
@@ -6533,18 +6531,28 @@ function reloadModel() {
         Object.keys(CUBES).forEach(k => delete CUBES[k]);
         Object.assign(CUBES, data.cubes);
         window._lastMeta = data.meta;
-        loadModel(CUBES, data.meta);
-        const count = Object.keys(data.cubes).length;
-        const ts = data.meta?.extractedAt
-          ? new Date(data.meta.extractedAt).toLocaleTimeString()
-          : '';
-        setConnIndicator('live', `Live · ${count} cubes${ts ? ' · ' + ts : ''}`);
-        showToast(`✅ Loaded ${count} cubes from TM1`);
+        // Apply tags embedded in the model file
+        const rawTags = data._tags || { tagDefs: {}, cubeTags: {} };
+        TAGS = rawTags;
+        _tagPaletteIdx = Object.keys(rawTags.tagDefs || {}).length;
+        refreshTagFilterBtn();
+        refreshSidebarTagSelect();
+        return fetch('/api/layouts/default').then(r => r.ok ? r.json() : Promise.reject()).catch(() => null)
+          .then(layout => {
+            loadModel(CUBES, data.meta, layout?.positions || []);
+            const count = Object.keys(data.cubes).length;
+            const ts = data.meta?.extractedAt
+              ? new Date(data.meta.extractedAt).toLocaleTimeString()
+              : '';
+            setConnIndicator('live', `Live · ${count} cubes${ts ? ' · ' + ts : ''}`);
+            showToast(layout ? `✅ Loaded ${count} cubes · default layout restored` : `✅ Loaded ${count} cubes from TM1`);
+            resetRefreshBtn();
+          });
       } else {
         setConnIndicator('error', 'No cubes returned');
         showToast('⚠️  No cubes in model — check server logs');
+        resetRefreshBtn();
       }
-      resetRefreshBtn();
     })
     .catch(() => {
       setConnIndicator('error', 'Failed to load');
