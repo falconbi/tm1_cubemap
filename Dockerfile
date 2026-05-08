@@ -10,6 +10,6 @@ COPY . .
 # Remove files that should not ship in the image
 RUN rm -f cube_map/tm1_model.json .env
 
-EXPOSE 8082
+EXPOSE 8083
 
-CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:8082", "--timeout", "120", "app:app"]
+CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:8083", "--timeout", "120", "app:app"]

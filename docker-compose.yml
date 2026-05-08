@@ -2,7 +2,7 @@ services:
   tm1-governance:
     build: .
     ports:
-      - "8082:8082"
+      - "8083:8083"
     env_file: .env
     volumes:
       - tm1_data:/app/cube_map/layouts
