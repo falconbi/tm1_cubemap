@@ -4425,22 +4425,64 @@ body{font-family:var(--font-ui);background:var(--bg);color:var(--text);display:f
 .sidebar{
   width:190px;flex-shrink:0;border-right:1px solid var(--border);
   background:var(--bg2);display:flex;flex-direction:column;overflow:hidden;
+  transition:width .2s cubic-bezier(.4,0,.2,1);
 }
+.sidebar.collapsed{width:0;border-right-color:transparent;}
+.sidebar-toggle{
+  flex-shrink:0;width:16px;
+  background:var(--bg2);border:none;border-right:1px solid var(--border);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  color:var(--muted);font-size:8px;padding:0;
+  transition:color .15s,width .2s cubic-bezier(.4,0,.2,1);
+}
+.sidebar-toggle:hover{color:var(--text2);background:var(--bg3);}
+.sidebar.collapsed + .sidebar-toggle{width:16px;}
+.sidebar-toggle.collapsed{border-right-color:transparent;}
 .sidebar-title{
   font-family:var(--font-mono);font-size:9px;letter-spacing:.1em;
   text-transform:uppercase;color:var(--muted);
   padding:10px 12px 6px;border-bottom:1px solid var(--border);
 }
-.sidebar-list{flex:1;overflow-y:auto;padding:4px 0;}
+.sidebar-list{flex:1;min-height:0;overflow-y:auto;padding:4px 0;}
+.sidebar-group-header{
+  font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--muted);padding:6px 12px 4px;cursor:pointer;user-select:none;
+  display:flex;align-items:center;gap:4px;
+}
+.sidebar-group-header:hover{color:var(--text2);}
+.sidebar-group-arrow{font-size:8px;opacity:.5;width:10px;}
+.sidebar-group-count{margin-left:auto;opacity:.4;font-weight:400;}
 .sidebar-item{
-  display:flex;align-items:center;gap:8px;
-  padding:6px 12px;cursor:pointer;font-size:11px;color:var(--text2);
+  display:flex;align-items:center;gap:6px;
+  padding:3px 10px;cursor:pointer;font-size:10px;color:var(--text2);
   transition:background .12s;border-left:2px solid transparent;
 }
 .sidebar-item:hover{background:var(--bg3);}
 .sidebar-item.active{background:var(--bg3);border-left-color:var(--accent);}
 .sidebar-dot{width:7px;height:7px;border-radius:1px;flex-shrink:0;}
 .sidebar-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sidebar-tag-btn{
+  width:12px;height:12px;border-radius:50%;flex-shrink:0;cursor:pointer;
+  border:1.5px solid var(--border2);background:transparent;
+  transition:all .12s;margin-left:4px;
+}
+.sidebar-tag-btn:hover{border-color:var(--text2);transform:scale(1.15);}
+.sidebar-tag-btn.on{background:var(--accent);border-color:var(--accent);}
+
+/* Sidebar tag bar */
+.sidebar-tagbar{
+  display:flex;align-items:center;gap:4px;padding:5px 10px;
+  border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.sidebar-tagbar select{
+  flex:1;font-size:10px;padding:2px 4px;border-radius:4px;
+  border:1px solid var(--border2);background:var(--bg3);color:var(--text2);
+  cursor:pointer;min-width:0;
+}
+.sidebar-tagbar .tag-new-btn{
+  font-size:12px;line-height:1;padding:0 5px;cursor:pointer;
+  color:var(--muted);border:none;background:none;
+}
 
 /* ── GRAPH CANVAS ─────────────────────────────── */
 #cy{flex:1;background:var(--bg);min-width:0;}
@@ -4600,6 +4642,11 @@ body{font-family:var(--font-ui);background:var(--bg);color:var(--text);display:f
     <button class="prefix-btn" onclick="applyPrefixFilter()">Go</button>
   </div>
   <div class="sep"></div>
+  <div style="display:flex;align-items:center;gap:6px;margin-right:8px">
+    <select id="serverInstanceSelect" onchange="onInstanceChange()" style="font-size:11px;padding:2px 6px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);cursor:pointer"></select>
+    <select id="serverDbSelect" onchange="onDbChange()" style="font-size:11px;padding:2px 6px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);cursor:pointer"></select>
+  </div>
+  <div class="sep"></div>
   <div class="filter-group" id="filterGroup">
     <button class="filter-btn f-python active" data-type="python" onclick="toggleFilter(this)">Python ETL</button>
     <button class="filter-btn f-ti active" data-type="ti" onclick="toggleFilter(this)">TI Process</button>
@@ -4637,16 +4684,21 @@ body{font-family:var(--font-ui);background:var(--bg);color:var(--text);display:f
 </div>
 
 <div class="workspace">
-  <div class="sidebar">
-    <div class="sidebar-title">Objects (8)</div>
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-title">Objects (<span id="sidebarCount">8</span>)</div>
+    <div class="sidebar-tagbar" id="sidebarTagBar">
+      <select id="sidebarTagSelect" onchange="onSidebarTagChange(this)"><option value="">— Tag —</option></select>
+      <button class="tag-new-btn" onclick="newSidebarTag()" title="Create new tag">+</button>
+    </div>
     <div class="sidebar-list" id="sidebarList"></div>
   </div>
+  <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="Toggle sidebar">◀</button>
   <div id="cy"></div>
   <div id="edgeLegend">
     <div class="legend-title">Edge types</div>
     <div class="legend-row"><svg width="36" height="10"><line x1="0" y1="5" x2="36" y2="5" stroke="#d29922" stroke-width="1.5"/><polygon points="34,2 36,5 34,8" fill="#d29922"/></svg><span style="color:#d29922">Rule (calc)</span></div>
     <div class="legend-row"><svg width="36" height="10"><line x1="0" y1="5" x2="36" y2="5" stroke="#6e7681" stroke-width="1.5" stroke-dasharray="3,6" opacity="0.45"/><polygon points="34,2 36,5 34,8" fill="#6e7681" opacity="0.45"/></svg><span style="opacity:.45">Rule (feeder)</span></div>
-    <div class="legend-row"><svg width="36" height="10"><line x1="0" y1="5" x2="36" y2="5" stroke="#1f6feb" stroke-width="1.5" stroke-dasharray="4,4"/><polygon points="34,2 36,5 34,8" fill="#1f6feb"/></svg><span style="color:#58a6ff">Python ETL</span></div>
+    <div class="legend-row"><svg width="36" height="10"><line x1="0" y1="5" x2="36" y2="5" stroke="#58a6ff" stroke-width="1.5" stroke-dasharray="4,4"/><polygon points="34,2 36,5 34,8" fill="#58a6ff"/></svg><span style="color:#58a6ff">Python ETL</span></div>
     <div class="legend-row"><svg width="36" height="10"><line x1="0" y1="5" x2="36" y2="5" stroke="#f78166" stroke-width="1.5" stroke-dasharray="8,3"/><polygon points="34,2 36,5 34,8" fill="#f78166"/></svg><span style="color:#f78166">TI Process</span></div>
     <div class="legend-row"><svg width="36" height="10"><line x1="0" y1="5" x2="36" y2="5" stroke="#a371f7" stroke-width="1.8"/><polygon points="34,2 36,5 34,8" fill="#a371f7"/></svg><span style="color:#a371f7">Triggers script</span></div>
   </div>
@@ -4686,10 +4738,10 @@ body{font-family:var(--font-ui);background:var(--bg);color:var(--text);display:f
 <script>
 /* ── COLOURS ────────────────────────────────────────────────── */
 const COLORS = {
-  python: '#1f6feb',
+  python: '#58a6ff',
   ti:     '#f78166',
 };
-const CUBE_NEUTRAL = '#2d333b';
+const CUBE_NEUTRAL = '#cc9b6a';
 
 function objectColor(id, c) {
   if (c.type === 'python') return COLORS.python;
@@ -4714,7 +4766,7 @@ function saveTags() {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(TAGS),
-  });
+  }).then(r => { if (!r.ok) throw new Error('Tag save failed'); return r; });
 }
 
 function getTagsForCube(cubeId) { return TAGS.cubeTags[cubeId] || []; }
@@ -4727,6 +4779,7 @@ function addTagToCube(cubeId, tag) {
   cy.getElementById(cubeId).data('tags', getTagsForCube(cubeId));
   cy.getElementById(cubeId).data('tagColor', TAGS.tagDefs[TAGS.cubeTags[cubeId][0]]);
   refreshTagFilterBtn();
+  refreshSidebarTagSelect();
 }
 
 function removeTagFromCube(cubeId, tag) {
@@ -4877,7 +4930,7 @@ const CUBES = {
 function isOrphaned(c) {
   const realEdge = e => {
     const t = typeof e === 'string' ? 'rule_calc' : (e.t || 'rule_calc');
-    return t === 'rule_calc' || t === 'python' || t === 'ti';
+    return t === 'rule_calc' || t === 'python' || t === 'ti' || t === 'python_trigger';
   };
   const hasRealFrom = (c.from||[]).some(realEdge);
   const hasRealTo   = (c.to||[]).some(realEdge);
@@ -4887,8 +4940,8 @@ function isOrphaned(c) {
 let showDims = false;
 
 function nodeLabel(id, c) {
-  if (c.type === 'python') return id + '\nPython ETL';
-  if (c.type === 'ti')     return id + '\nTI Process';
+  if (c.type === 'python') return id;
+  if (c.type === 'ti')     return id;
   const dimsCount  = (c.dims||[]).length;
   const viewsCount = (c.views||[]).length;
   const ram = c.ramMb ? (c.ramMb >= 1024 ? (c.ramMb/1024).toFixed(1)+'GB' : c.ramMb+'MB') : null;
@@ -4901,15 +4954,13 @@ function buildElements(cubesObj) {
   const els = [];
   const maxRam = Math.max(1, ...Object.values(cubesObj).map(c => c.ramMb || 0));
   Object.entries(cubesObj).forEach(([id,c])=>{
-    const orphaned     = isOrphaned(c);
-    const undocumented = c.descSource === 'ai_inferred';
     const ramHeat      = c.ramMb ? c.ramMb / maxRam : 0;
     const lbl          = nodeLabel(id, c);
     const w            = Math.max(80, ...lbl.split('\n').map(l => l.length * 7.2 + 32));
     const cubeTags     = getTagsForCube(id);
     const tagColor     = cubeTags.length ? (TAGS.tagDefs[cubeTags[0]] || null) : null;
     const nodeColor = (c.type === 'python' || c.type === 'ti') ? COLORS[c.type] : CUBE_NEUTRAL;
-    els.push({data:{id, label:lbl, w, type:c.type, color:nodeColor, orphaned, undocumented, ramHeat, tags:cubeTags, tagColor}});
+    els.push({data:{id, label:lbl, w, type:c.type, color:nodeColor, ramHeat, tags:cubeTags, tagColor}});
   });
   Object.entries(cubesObj).forEach(([src,c])=>{
     (c.to||[]).forEach(edgeObj=>{
@@ -4984,6 +5035,7 @@ fetch('/api/model')
         TAGS = tags;
         _tagPaletteIdx = Object.keys(tags.tagDefs).length;
         refreshTagFilterBtn();
+        refreshSidebarTagSelect();
         return fetch('/api/layouts/default').then(r => r.ok ? r.json() : Promise.reject()).catch(() => null);
       })
       .then(layout => {
@@ -5038,7 +5090,7 @@ const cy = cytoscape({
     }},
     {selector:'edge[?python]', style:{
       'line-style':'dashed', 'line-dash-pattern':[4,4],
-      'line-color':'#1f6feb', 'target-arrow-color':'#1f6feb',
+      'line-color':'#58a6ff', 'target-arrow-color':'#58a6ff',
     }},
     {selector:'edge[?ti]', style:{
       'line-style':'dashed', 'line-dash-pattern':[8,3],
@@ -5053,13 +5105,19 @@ const cy = cytoscape({
       'line-color':'#a371f7', 'target-arrow-color':'#a371f7',
       width:1.8, opacity:0.8,
     }},
-    {selector:'node[?orphaned]', style:{
-      'border-style':'dashed', 'border-width':1.5, 'border-color':'#f85149',
-      'background-color':'rgba(248,81,73,0.07)',
+    {selector:'node[type="ti"]', style:{
+      shape:'diamond', width:15, height:15, padding:0, 'min-width':0,
+      'background-color':'#f78166', 'background-opacity':1,
+      'border-color':'#f78166', 'border-width':0,
+      'text-valign':'bottom', 'text-margin-y':4, 'font-size':10,
+      'text-max-width':120,
     }},
-    {selector:'node[?undocumented]', style:{
-      'border-style':'dashed', 'border-width':1.5, 'border-color':'#8957e5',
-      'background-color':'rgba(137,87,229,0.06)',
+    {selector:'node[type="python"]', style:{
+      shape:'hexagon', width:15, height:15, padding:0, 'min-width':0,
+      'background-color':'#58a6ff', 'background-opacity':1,
+      'border-color':'#58a6ff', 'border-width':0,
+      'text-valign':'bottom', 'text-margin-y':4, 'font-size':10,
+      'text-max-width':120, 'color':'#58a6ff',
     }},
     {selector:'node[tagColor]', style:{
       'border-color':'data(tagColor)', 'border-width':2.5, 'border-opacity':1,
@@ -5074,26 +5132,62 @@ const cy = cytoscape({
 initRamBtn();
 
 /* ── SIDEBAR ────────────────────────────────────────────────── */
+let _sidebarSelectedTag = '';
 function buildSidebar(prefixFilter){
   const el = document.getElementById('sidebarList');
   el.innerHTML = '';
   const pf = (prefixFilter||'').toUpperCase();
-  // Cubes first (sorted), then Python ETL, then TI processes
-  const order = ['python','ti'];
-  const sorted = Object.entries(CUBES).sort(([a,ac],[b,bc]) => {
-    const ai = order.indexOf(ac.type), bi = order.indexOf(bc.type);
-    const ag = ai === -1 ? 0 : ai + 1, bg = bi === -1 ? 0 : bi + 1;
-    if (ag !== bg) return ag - bg;
-    return a.localeCompare(b);
-  });
-  sorted.forEach(([id,c])=>{
+  const groups = {cube:[], python:[], ti:[]};
+  Object.entries(CUBES).forEach(([id,c])=>{
     if(pf && !id.toUpperCase().startsWith(pf)) return;
-    const item = document.createElement('div');
-    item.className = 'sidebar-item';
-    item.dataset.id = id;
-    item.innerHTML = `<span class="sidebar-dot" style="background:${objectColor(id,c)}"></span><span class="sidebar-name" title="${id}">${id}</span>`;
-    item.onclick = ()=> selectCube(id);
-    el.appendChild(item);
+    if (c.type === 'python') groups.python.push([id,c]);
+    else if (c.type === 'ti') groups.ti.push([id,c]);
+    else groups.cube.push([id,c]);
+  });
+  // Sort each group alphabetically
+  Object.values(groups).forEach(g => g.sort((a,b) => a[0].localeCompare(b[0])));
+  let expanded = {};
+  try { expanded = JSON.parse(localStorage.getItem('tm1-sidebar-groups')||'{}'); } catch(e){}
+  function saveExpanded() {
+    try { localStorage.setItem('tm1-sidebar-groups', JSON.stringify(expanded)); } catch(e){}
+  }
+  const groupMeta = [
+    {key:'cube',   label:'Cubes'},
+    {key:'python', label:'Python ETL'},
+    {key:'ti',     label:'TI Process'},
+  ];
+  groupMeta.forEach(({key, label})=>{
+    const entries = groups[key];
+    if (!entries.length) return;
+    const isOpen = expanded[key] !== false;
+    const section = document.createElement('div');
+    section.className = 'sidebar-group';
+    const header = document.createElement('div');
+    header.className = 'sidebar-group-header';
+    header.innerHTML = `<span class="sidebar-group-arrow">${isOpen?'▾':'▸'}</span>${label} <span class="sidebar-group-count">${entries.length}</span>`;
+    header.onclick = ()=>{
+      expanded[key] = !(expanded[key] !== false);
+      saveExpanded();
+      const list = section.querySelector('.sidebar-group-list');
+      const arrow = header.querySelector('.sidebar-group-arrow');
+      list.style.display = expanded[key] ? '' : 'none';
+      arrow.textContent = expanded[key] ? '▾' : '▸';
+    };
+    section.appendChild(header);
+    const list = document.createElement('div');
+    list.className = 'sidebar-group-list';
+    list.style.display = isOpen ? '' : 'none';
+    entries.forEach(([id,c])=>{
+      const item = document.createElement('div');
+      item.className = 'sidebar-item';
+      item.dataset.id = id;
+      const hasTag = _sidebarSelectedTag && getTagsForCube(id).includes(_sidebarSelectedTag);
+      item.innerHTML = `<span class="sidebar-dot" style="background:${objectColor(id,c)}"></span><span class="sidebar-name" title="${id}">${id}</span><span class="sidebar-tag-btn${hasTag?' on':''}" onclick="event.stopPropagation();toggleSidebarTag('${id}')"></span>`;
+      item.onclick = ()=> selectCube(id);
+      list.appendChild(item);
+    });
+    section.appendChild(list);
+    el.appendChild(section);
   });
 }
 buildSidebar();
@@ -5923,14 +6017,109 @@ function copyModulePrompt() {
     });
 }
 
-let showOrphans = true;
-function toggleOrphans(btn) {
-  showOrphans = !showOrphans;
-  btn.classList.toggle('active', showOrphans);
-  cy.nodes('[?orphaned]').style('display', showOrphans ? 'element' : 'none');
-  cy.nodes('[?orphaned]').connectedEdges().style('display', showOrphans ? 'element' : 'none');
-  const count = cy.nodes('[?orphaned]').length;
-  showToast(showOrphans ? `Orphaned cubes shown (${count})` : `Orphaned cubes hidden (${count})`);
+
+/* ── SIDEBAR QUICK TAG ──────────────────────────────────────── */
+
+function refreshSidebarTagSelect() {
+  const sel = document.getElementById('sidebarTagSelect');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Tag —</option>'
+    + Object.keys(TAGS.tagDefs).sort().map(t =>
+        `<option value="${t}" ${t===_sidebarSelectedTag?'selected':''}>${t}</option>`
+      ).join('');
+  if (!_sidebarSelectedTag || !TAGS.tagDefs[_sidebarSelectedTag]) {
+    _sidebarSelectedTag = sel.value || '';
+  }
+}
+
+function onSidebarTagChange(sel) {
+  _sidebarSelectedTag = sel.value || '';
+  buildSidebar(document.getElementById('prefixInput')?.value || '');
+}
+
+function newSidebarTag() {
+  const tag = prompt('New tag name:');
+  if (!tag || tag.trim() === '') return;
+  if (!TAGS.tagDefs[tag]) TAGS.tagDefs[tag] = nextTagColor();
+  _sidebarSelectedTag = tag;
+  saveTags().catch(() => {});
+  refreshSidebarTagSelect();
+  onSidebarTagChange(document.getElementById('sidebarTagSelect'));
+}
+
+function toggleSidebarTag(cubeId) {
+  if (!_sidebarSelectedTag) { showToast('Select a tag first'); return; }
+  const tags = getTagsForCube(cubeId);
+  if (tags.includes(_sidebarSelectedTag)) {
+    removeTagFromCube(cubeId, _sidebarSelectedTag);
+  } else {
+    addTagToCube(cubeId, _sidebarSelectedTag);
+  }
+  buildSidebar(document.getElementById('prefixInput')?.value || '');
+}
+
+
+// ── Server selector ──────────────────────────────────────────────────────────
+let _servers = [];
+let _activeInstance = 0;
+let _activeDb = 0;
+
+async function initServerSelector() {
+  try {
+    const data = await fetch('/api/servers').then(r => r.json());
+    _servers        = data.servers || [];
+    _activeInstance = data.activeInstance || 0;
+    _activeDb       = data.activeDb || 0;
+    renderInstanceSelect();
+    renderDbSelect();
+  } catch(e) {
+    console.warn('Server selector init failed:', e);
+  }
+}
+
+function renderInstanceSelect() {
+  const sel = document.getElementById('serverInstanceSelect');
+  if (!sel || !_servers.length) return;
+  sel.innerHTML = _servers.map((s, i) =>
+    `<option value="${i}" ${i === _activeInstance ? 'selected' : ''}>${s.name}</option>`
+  ).join('');
+}
+
+function renderDbSelect() {
+  const sel = document.getElementById('serverDbSelect');
+  if (!sel || !_servers.length) return;
+  const dbs = _servers[_activeInstance]?.databases || [];
+  sel.innerHTML = dbs.map((d, i) =>
+    `<option value="${i}" ${i === _activeDb ? 'selected' : ''}>${d.name}</option>`
+  ).join('');
+}
+
+function onInstanceChange() {
+  _activeInstance = parseInt(document.getElementById('serverInstanceSelect').value);
+  _activeDb = 0;
+  renderDbSelect();
+  switchActiveServer();
+}
+
+function onDbChange() {
+  _activeDb = parseInt(document.getElementById('serverDbSelect').value);
+  switchActiveServer();
+}
+
+async function switchActiveServer() {
+  try {
+    await fetch('/api/servers/active', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({instance: _activeInstance, db: _activeDb})
+    });
+    // Clear tags in memory — server-specific, don't persist empty state
+    TAGS = { tagDefs: {}, cubeTags: {} };
+    refreshTagFilterBtn();
+    reloadModel();
+  } catch(e) {
+    console.error('Server switch failed:', e);
+  }
 }
 
 // ── PERFORMANCE MONITOR TOGGLE ───────────────────────────────────────────────
@@ -6099,18 +6288,6 @@ function toggleDimLabels(btn) {
   showToast(showDims ? 'Hover a cube to see its dimensions' : 'Dimension tooltip off');
 }
 
-let showUndocumented = true;
-function toggleUndocumented(btn) {
-  showUndocumented = !showUndocumented;
-  btn.classList.toggle('active', showUndocumented);
-  cy.nodes('[?undocumented]').style('border-color',      showUndocumented ? '#8957e5' : 'data(color)');
-  cy.nodes('[?undocumented]').style('border-width',      showUndocumented ? 1.5 : 1.5);
-  cy.nodes('[?undocumented]').style('border-style',      showUndocumented ? 'dashed' : 'solid');
-  cy.nodes('[?undocumented]').style('background-color',  showUndocumented ? 'rgba(137,87,229,0.06)' : 'data(color)');
-  const count = cy.nodes('[?undocumented]').length;
-  showToast(showUndocumented ? `Undocumented cubes highlighted (${count})` : 'Undocumented highlight off');
-}
-
 function toggleFilter(btn){
   const t = btn.dataset.type;
   if(activeFilters.has(t)){ activeFilters.delete(t); btn.classList.remove('active'); }
@@ -6139,6 +6316,24 @@ function applyLayout(val){
   cy.layout(opts).run();
   showToast('Layout: '+document.getElementById('layoutSelect').selectedOptions[0].text);
 }
+
+/* ── SIDEBAR TOGGLE ─────────────────────────────────────────── */
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  const btn = document.getElementById('sidebarToggle');
+  const isCollapsed = sb.classList.toggle('collapsed');
+  btn.classList.toggle('collapsed', isCollapsed);
+  btn.textContent = isCollapsed ? '▶' : '◀';
+  setTimeout(() => cy.resize(), 220);
+  try { localStorage.setItem('tm1-sidebar-collapsed', isCollapsed ? '1' : ''); } catch(e) {}
+}
+try {
+  if (localStorage.getItem('tm1-sidebar-collapsed') === '1') {
+    document.getElementById('sidebar').classList.add('collapsed');
+    document.getElementById('sidebarToggle').classList.add('collapsed');
+    document.getElementById('sidebarToggle').textContent = '▶';
+  }
+} catch(e) {}
 
 /* ── UTILS ──────────────────────────────────────────────────── */
 function resetAll(){
@@ -6192,7 +6387,7 @@ function applyTheme() {
     .selector('node:selected').style({ color: isDark ? '#e6edf3' : '#1f2328' })
     .selector('node.search-match').style({ color: isDark ? '#f0f6fc' : '#1f2328' })
     .selector('edge').style({ 'line-color': '#d29922', 'target-arrow-color': '#d29922' })
-    .selector('edge[?python]').style({ 'line-color': '#1f6feb', 'target-arrow-color': '#1f6feb', 'line-style': 'dashed', 'line-dash-pattern': [4,4] })
+    .selector('edge[?python]').style({ 'line-color': '#58a6ff', 'target-arrow-color': '#58a6ff', 'line-style': 'dashed', 'line-dash-pattern': [4,4] })
     .selector('edge[?ti]').style({ 'line-color': '#f78166', 'target-arrow-color': '#f78166', 'line-style': 'dashed', 'line-dash-pattern': [8,3] })
     .selector('edge[?feeder]').style({ 'line-color': '#6e7681', 'target-arrow-color': '#6e7681', 'line-style': 'dotted', 'line-dash-pattern': [3,6], opacity: 0.4 })
     .selector('edge[?pythonTrigger]').style({ 'line-color': '#a371f7', 'target-arrow-color': '#a371f7', 'line-style': 'solid', width: 1.8, opacity: 0.8 })
@@ -6364,6 +6559,7 @@ function resetRefreshBtn() {
 }
 
 // On page load — check if we're in live mode and model exists
+initServerSelector();
 if (IS_LIVE) {
   fetch('/api/status')
     .then(r => r.json())
