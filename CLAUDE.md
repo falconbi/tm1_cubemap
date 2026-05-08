@@ -139,8 +139,6 @@ Browser (http://localhost:8083)
 ### High Priority
 
 - [ ] Cache TM1 sessions (5–10 min TTL) — biggest performance win (partially done: per-server cache exists)
-- [ ] Add `/api/paw/users` endpoint — PAW user enumeration for orphaned book detection
-- [ ] Complete CST Model Builder scripts (in tm1_governance repo)
 
 ### Medium Priority
 
@@ -164,11 +162,11 @@ Browser (http://localhost:8083)
 
 ### CubeMap — Edge Classification
 
-- [ ] Split rules text at `FEEDERS;` — only scan calc section for DB() edges; feeder section DB() = performance hints
-- [ ] Classify edges: `rule_calc` (before FEEDERS;) vs `rule_feeder` (after FEEDERS;)
+- [x] Split rules text at `FEEDERS;` — only scan calc section for DB() edges; feeder section DB() = performance hints
+- [x] Classify edges: `rule_calc` (before FEEDERS;) vs `rule_feeder` (after FEEDERS;)
 - [ ] Classify by measure type: value = flow, rate/driver = lookup
-- [ ] UI toggle checkbox: show/hide feeder edges independently from calc edges
-- [ ] Save/load named diagram layouts (done)
+- [x] UI toggle: show/hide feeder edges independently from calc edges
+- [x] Save/load named diagram layouts
 
 ### CubeMap — Enriched Extraction
 
