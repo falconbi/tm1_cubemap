@@ -15,10 +15,10 @@ __pycache__/
 *.swp
 
 # Generated model cache — re-extracted from TM1 on Refresh
-cube_map/tm1_model.json
+cube_map/data/tm1_model.json
 
 # User-specific saved layouts
-cube_map/layouts/*.json
+cube_map/data/layouts/*.json
 
 # SSL certs (mkcert local dev)
 *.pem

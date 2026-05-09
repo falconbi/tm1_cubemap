@@ -5,7 +5,7 @@ services:
       - "8084:8084"
     volumes:
       - ./config:/app/config
-      - tm1_data:/app/cube_map
+      - tm1_data:/app/cube_map/data
     restart: unless-stopped
 
 volumes:

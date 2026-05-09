@@ -240,9 +240,8 @@ def extract_model(prefix_filter: str = "") -> dict:
                 c for c in all_cube_names if c.upper().startswith(prefix_filter.upper())
             ]
 
-        print(
-            f"Found {len(all_cube_names)} cubes{f' matching prefix "{prefix_filter}"' if prefix_filter else ''}\n"
-        )
+        suffix = f' matching prefix "{prefix_filter}"' if prefix_filter else ''
+        print(f"Found {len(all_cube_names)} cubes{suffix}\n")
 
         cubes_data = {}
         all_edges = []

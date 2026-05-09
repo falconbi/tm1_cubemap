@@ -8,7 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Remove files that should not ship in the image
-RUN rm -f cube_map/tm1_model.json .env
+RUN rm -f cube_map/data/tm1_model.json .env && mkdir -p cube_map/data
 
 EXPOSE 8084
 

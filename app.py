@@ -33,7 +33,7 @@ from flask_compress import Compress
 
 # ── Path setup ────────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).parent
-MODEL_FILE = BASE_DIR / "cube_map" / "tm1_model.json"
+MODEL_FILE = BASE_DIR / "cube_map" / "data" / "tm1_model.json"
 SERVERS_FILE = BASE_DIR / "config" / "servers.json"
 
 sys.path.insert(0, str(BASE_DIR))
@@ -170,9 +170,10 @@ def api_refresh():
                 _refresh_status["lastResult"] = "success"
                 log.info("Model refresh completed successfully")
             except Exception as e:
+                import traceback
                 _refresh_status["lastResult"] = "error"
                 _refresh_status["error"] = str(e)
-                log.error(f"Model refresh failed: {e}")
+                log.error(f"Model refresh failed: {e}\n{traceback.format_exc()}")
             finally:
                 _refresh_status["running"] = False
                 _refresh_status["lastRun"] = datetime.now(timezone.utc).isoformat()
@@ -195,10 +196,10 @@ def api_status():
     )
 
 
-LAYOUTS_DIR = BASE_DIR / "cube_map" / "layouts"
-LAYOUTS_DIR.mkdir(exist_ok=True)
+LAYOUTS_DIR = BASE_DIR / "cube_map" / "data" / "layouts"
+LAYOUTS_DIR.mkdir(parents=True, exist_ok=True)
 
-TAGS_FILE = BASE_DIR / "cube_map" / "tags.json"
+TAGS_FILE = BASE_DIR / "cube_map" / "data" / "tags.json"
 
 
 @app.route("/api/setup/save", methods=["POST"])
