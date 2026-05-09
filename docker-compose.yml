@@ -3,7 +3,6 @@ services:
     image: falconbi/tm1-cubemap:latest
     ports:
       - "8084:8083"
-    env_file: .env
     volumes:
       - ./servers.json:/app/servers.json
       - tm1_data:/app/cube_map
