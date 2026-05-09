@@ -10,4 +10,7 @@ __pycache__/
 *.swp
 cube_map/tm1_model.json
 cube_map/layouts/*.json
+cube_map/tags.json
+servers.json
+active_server.json
 *.pem

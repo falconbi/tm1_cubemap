@@ -112,7 +112,7 @@ def favicon_cube_map():
 def index():
     """Serve the CubeMap HTML diagram, or setup page if unconfigured."""
     static_dir = BASE_DIR / "cube_map" / "static"
-    if not SERVERS_FILE.exists() or SERVERS_FILE.stat().st_size < 20:
+    if not SERVERS_FILE.is_file():
         if not (static_dir / "setup.html").exists():
             abort(404, "setup.html not found")
         resp = send_from_directory(str(static_dir), "setup.html")
