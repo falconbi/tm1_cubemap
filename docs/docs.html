@@ -3,17 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TM1 CubeMap — Documentation</title>
-  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <title>Falcon BI — TM1 CubeMap</title>
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=1" />
+  <link rel="shortcut icon" href="favicon.svg?v=1" />
+  <link rel="apple-touch-icon" href="favicon.svg?v=1" />
+
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
   <style>
     :root {
       --bg:             #ffffff;
       --sidebar-bg:     #f8fafc;
       --sidebar-border: #e2e8f0;
-      --accent:         #3b82f6;
+      --accent:         #3b82f6;        /* Blue for CubeMap */
       --accent-bg:      #eff6ff;
       --accent-border:  #bfdbfe;
       --text:           #475569;
@@ -38,7 +44,7 @@
       min-height: 100vh;
     }
 
-    /* ── Sidebar ──────────────────────────────────────────────── */
+    /* All styles below are EXACTLY the same as tm1_report_writer */
 
     #sidebar {
       width: var(--sidebar-w);
@@ -117,7 +123,6 @@
       text-align: left;
       line-height: 1.4;
       font-weight: 450;
-      text-decoration: none;
     }
 
     .nav-item:hover {
@@ -127,7 +132,7 @@
 
     .nav-item.active {
       background: var(--accent-bg);
-      color: #1d4ed8;
+      color: #1e40af;
       font-weight: 600;
       border: 1px solid var(--accent-border);
     }
@@ -142,15 +147,14 @@
     .nav-item.active svg { color: var(--accent); }
     .nav-item:hover svg { color: var(--text); }
 
-    /* ── Sub-nav (in-page headings) ──────────────────────────── */
-
+    /* Sub-nav styles (exact copy) */
     .nav-sub {
       margin: 2px 0 6px 22px;
       border-left: 2px solid var(--divider);
       padding-left: 0;
     }
 
-    .nav-sub-item {
+    .nav-sub-item, .nav-sub3-item {
       display: block;
       width: 100%;
       text-align: left;
@@ -168,32 +172,23 @@
       line-height: 1.4;
     }
 
-    .nav-sub-item:hover { color: var(--text-bright); background: #f1f5f9; }
-    .nav-sub-item.active { color: #1d4ed8; font-weight: 600; background: var(--accent-bg); }
-
-    .nav-sub3 { display: none; margin-left: 10px; border-left: 2px solid var(--divider); }
-    .nav-sub3.open { display: block; }
-
-    .nav-sub3-item {
-      display: block;
-      width: 100%;
-      text-align: left;
-      padding: 4px 10px;
-      font-size: 11.5px;
-      color: var(--text-muted);
-      background: none;
-      border: none;
-      cursor: pointer;
-      border-radius: 0 5px 5px 0;
-      transition: color 0.12s, background 0.12s;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      line-height: 1.4;
+    .nav-sub-item:hover, .nav-sub3-item:hover {
+      color: var(--text-bright);
+      background: #f1f5f9;
     }
 
-    .nav-sub3-item:hover { color: var(--text-bright); background: #f1f5f9; }
-    .nav-sub3-item.active { color: #1d4ed8; font-weight: 600; }
+    .nav-sub-item.active, .nav-sub3-item.active {
+      color: #1e40af;
+      font-weight: 600;
+      background: var(--accent-bg);
+    }
+
+    .nav-sub3 {
+      display: none;
+      margin-left: 10px;
+      border-left: 2px solid var(--divider);
+    }
+    .nav-sub3.open { display: block; }
 
     .sidebar-footer {
       padding: 16px 20px;
@@ -205,9 +200,12 @@
       gap: 8px;
     }
 
-    .sidebar-footer img { width: 16px; height: 16px; object-fit: contain; opacity: 0.4; }
-
-    /* ── Main ─────────────────────────────────────────────────── */
+    .sidebar-footer img {
+      width: 16px;
+      height: 16px;
+      object-fit: contain;
+      opacity: 0.4;
+    }
 
     #main {
       margin-left: var(--sidebar-w);
@@ -231,7 +229,7 @@
     }
 
     #topbar-crumb { font-size: 12px; color: var(--text-muted); }
-    #topbar-sep   { font-size: 12px; color: var(--text-muted); }
+    #topbar-sep { font-size: 12px; color: var(--text-muted); }
     #topbar-title { font-size: 13px; font-weight: 600; color: var(--text-bright); }
 
     #content {
@@ -260,263 +258,225 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── Markdown ─────────────────────────────────────────────── */
-
-    .md h1 {
-      font-size: 30px; font-weight: 800; color: var(--text-bright);
-      margin-bottom: 6px; line-height: 1.2; letter-spacing: -0.02em;
-    }
-    .md h1::after {
-      content: ''; display: block; width: 36px; height: 3px;
-      background: var(--accent); border-radius: 2px;
-      margin-top: 12px; margin-bottom: 4px;
-    }
-    .md h2 {
-      font-size: 20px; font-weight: 700; color: var(--text-bright);
-      margin-top: 48px; margin-bottom: 14px;
-      padding-bottom: 10px; border-bottom: 1px solid var(--divider);
-      letter-spacing: -0.01em;
-    }
+    /* Markdown styles (exact copy) */
+    .md h1 { font-size: 30px; font-weight: 800; color: var(--text-bright); margin-bottom: 6px; line-height: 1.2; letter-spacing: -0.02em; }
+    .md h1::after { content: ''; display: block; width: 36px; height: 3px; background: var(--accent); border-radius: 2px; margin-top: 12px; margin-bottom: 4px; }
+    .md h2 { font-size: 20px; font-weight: 700; color: var(--text-bright); margin-top: 48px; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--divider); letter-spacing: -0.01em; }
     .md h3 { font-size: 14px; font-weight: 700; color: var(--text-bright); margin-top: 28px; margin-bottom: 10px; }
-    .md h4 { font-size: 13px; font-weight: 600; color: var(--text-bright); margin-top: 20px; margin-bottom: 8px; }
-    .md p  { font-size: 14.5px; line-height: 1.8; color: var(--text); margin-bottom: 16px; }
-    .md a  { color: #2563eb; text-decoration: none; font-weight: 500; border-bottom: 1px solid var(--accent-border); transition: border-color 0.15s, color 0.15s; }
+    .md p { font-size: 14.5px; line-height: 1.8; color: var(--text); margin-bottom: 16px; }
+    .md a { color: var(--accent); text-decoration: none; font-weight: 500; border-bottom: 1px solid #bfdbfe; }
     .md a:hover { color: var(--accent); border-bottom-color: var(--accent); }
-    .md ul, .md ol { padding-left: 22px; margin-bottom: 16px; }
-    .md li { font-size: 14.5px; line-height: 1.8; color: var(--text); margin-bottom: 4px; }
-    .md li::marker { color: var(--accent); }
-    .md strong { color: var(--text-bright); font-weight: 600; }
-    .md code {
-      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
-      font-size: 12.5px; background: var(--code-bg); color: #1d4ed8;
-      padding: 2px 6px; border-radius: 5px; border: 1px solid var(--code-border);
-    }
-    .md pre {
-      background: var(--code-bg); border: 1px solid var(--code-border);
-      border-radius: 10px; padding: 20px 22px; overflow-x: auto; margin-bottom: 20px;
-    }
-    .md pre code { background: none; border: none; padding: 0; font-size: 13px; color: inherit; }
-    .md blockquote {
-      border-left: 3px solid var(--accent); padding: 12px 18px;
-      background: var(--accent-bg); border-radius: 0 8px 8px 0; margin-bottom: 18px;
-    }
-    .md blockquote p { margin: 0; color: #1d4ed8; font-size: 14px; font-weight: 500; }
-    .md hr { border: none; border-top: 1px solid var(--divider); margin: 36px 0; }
-    .md img {
-      max-width: 100%; height: auto; border-radius: 10px;
-      border: 1px solid var(--divider); margin: 16px 0;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
-    }
-    .md table { width: 100%; border-collapse: collapse; margin-bottom: 22px; font-size: 13.5px; border: 1px solid var(--divider); border-radius: 8px; overflow: hidden; }
-    .md th { background: var(--table-header); color: var(--text-bright); font-weight: 600; padding: 10px 16px; text-align: left; border-bottom: 1px solid var(--divider); font-size: 12px; letter-spacing: 0.02em; }
-    .md td { padding: 9px 16px; border-bottom: 1px solid var(--divider); color: var(--text); vertical-align: top; line-height: 1.6; }
-    .md tr:last-child td { border-bottom: none; }
-    .md tr:hover td { background: #fafafa; }
+    .md code { font-family: 'SF Mono', monospace; font-size: 12.5px; background: var(--code-bg); padding: 2px 6px; border-radius: 5px; border: 1px solid var(--code-border); }
+    .md pre { background: var(--code-bg); border: 1px solid var(--code-border); border-radius: 10px; padding: 20px 22px; overflow-x: auto; margin-bottom: 20px; }
+    .md img { max-width: 100%; border-radius: 10px; border: 1px solid var(--divider); margin: 16px 0; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
 
     #back-top {
-      position: fixed; bottom: 28px; right: 28px;
-      width: 38px; height: 38px;
-      background: var(--bg); border: 1px solid var(--divider); border-radius: 50%;
-      cursor: pointer; display: none; align-items: center; justify-content: center;
-      color: var(--text-muted); box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-      transition: box-shadow 0.15s, color 0.15s; z-index: 200;
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      width: 38px;
+      height: 38px;
+      background: var(--bg);
+      border: 1px solid var(--divider);
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
     }
-    #back-top:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.12); color: var(--text-bright); }
     #back-top.visible { display: flex; }
   </style>
 </head>
 <body>
 
-<!-- ── Sidebar ─────────────────────────────────────────────── -->
-<nav id="sidebar">
-  <div class="brand" onclick="loadPage('user-guide.md','User Guide')">
-    <img src="logo.png" alt="Falcon BI" />
-    <div class="brand-text">
-      <span class="brand-name">Falcon BI</span>
-      <span class="brand-sub">TM1 CubeMap</span>
+  <!-- Sidebar -->
+  <nav id="sidebar">
+    <div class="brand" onclick="loadPage('product-overview.md','Product Overview')">
+      <img src="logo.png" alt="Falcon BI" />
+      <div class="brand-text">
+        <span class="brand-name">Falcon BI</span>
+        <span class="brand-sub">TM1 CubeMap</span>
+      </div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Overview</div>
+
+      <button class="nav-item" data-file="product-overview.md" onclick="loadPage('product-overview.md','Product Overview')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        Product Overview
+      </button>
+
+      <div class="nav-label" style="margin-top:14px">Documentation</div>
+
+      <button class="nav-item active" data-file="user-guide.md" onclick="loadPage('user-guide.md','User Guide')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        User Guide
+      </button>
+    </div>
+
+    <div class="sidebar-footer">
+      <img src="logo.png" alt="" />
+      © 2026 Falcon BI
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <div id="main">
+    <div id="topbar">
+      <span id="topbar-crumb">Falcon BI</span>
+      <span id="topbar-sep">›</span>
+      <span id="topbar-title">User Guide</span>
+    </div>
+    <div id="content">
+      <div id="loading"><div class="spinner"></div> Loading…</div>
+      <div id="md-output" class="md" style="display:none"></div>
     </div>
   </div>
 
-  <div class="nav-section">
-    <div class="nav-label">Overview</div>
+  <button id="back-top" title="Back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+  </button>
 
-    <a class="nav-item" href="index.html" target="_blank">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-      Product Overview
-    </a>
-
-    <a class="nav-item" href="https://github.com/falconbi/tm1_cubemap" target="_blank" rel="noopener">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77 5.07 5.07 0 0019.91 1S18.73.65 16 2.48a13.38 13.38 0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 005 4.77a5.44 5.44 0 00-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 18.13V22"/></svg>
-      GitHub
-    </a>
-
-    <div class="nav-label" style="margin-top:14px">Documentation</div>
-
-    <button class="nav-item active" data-file="user-guide.md" onclick="loadPage('user-guide.md','User Guide')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-      User Guide
-    </button>
-
-    <div class="nav-label" style="margin-top:14px">Links</div>
-
-    <a class="nav-item" href="https://hub.docker.com/r/falconbi/tm1-cubemap" target="_blank" rel="noopener">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-      Docker Hub
-    </a>
-
-    <a class="nav-item" href="https://github.com/falconbi/tm1_cubemap/issues" target="_blank" rel="noopener">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      Report an Issue
-    </a>
-  </div>
-
-  <div class="sidebar-footer">
-    <img src="logo.png" alt="" />
-    &copy; 2026 Falcon BI
-  </div>
-</nav>
-
-<!-- ── Main ───────────────────────────────────────────────── -->
-<div id="main">
-  <div id="topbar">
-    <span id="topbar-crumb">Falcon BI</span>
-    <span id="topbar-sep">›</span>
-    <span id="topbar-title">User Guide</span>
-  </div>
-  <div id="content">
-    <div id="loading"><div class="spinner"></div> Loading…</div>
-    <div id="md-output" class="md" style="display:none"></div>
-  </div>
-</div>
-
-<button id="back-top" title="Back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
-</button>
-
-<script>
-  marked.setOptions({ breaks: true, gfm: true })
-
-  function slugify(text) {
-    return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-  }
-
-  function buildSubNav(activeBtn) {
-    document.querySelectorAll('.nav-sub').forEach(el => el.remove())
-    const output = document.getElementById('md-output')
-    const allHeadings = Array.from(output.querySelectorAll('h2, h3'))
-    const h2s = allHeadings.filter(h => h.tagName === 'H2')
-    if (!h2s.length) return
-
-    allHeadings.forEach(h => { if (!h.id) h.id = slugify(h.textContent) })
-
-    const subNav = document.createElement('div')
-    subNav.className = 'nav-sub'
-
-    h2s.forEach((h2, i) => {
-      const nextH2 = h2s[i + 1]
-      const h3s = allHeadings.filter(h => {
-        if (h.tagName !== 'H3') return false
-        const after = h.compareDocumentPosition(h2) & Node.DOCUMENT_POSITION_PRECEDING
-        const before = nextH2 ? (h.compareDocumentPosition(nextH2) & Node.DOCUMENT_POSITION_FOLLOWING) : true
-        return after && before
-      })
-
-      const btn = document.createElement('button')
-      btn.className = 'nav-sub-item'
-      btn.textContent = h2.textContent
-      btn.dataset.target = h2.id
-
-      const sub3 = document.createElement('div')
-      sub3.className = 'nav-sub3'
-      sub3.dataset.parent = h2.id
-
-      h3s.forEach(h3 => {
-        const b3 = document.createElement('button')
-        b3.className = 'nav-sub3-item'
-        b3.textContent = h3.textContent
-        b3.dataset.target = h3.id
-        b3.onclick = (e) => {
-          e.stopPropagation()
-          document.getElementById(h3.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  <script>
+    marked.setOptions({
+      breaks: true,
+      gfm: true,
+      highlight: function(code, lang) {
+        if (lang && hljs.getLanguage(lang)) {
+          return hljs.highlight(code, { language: lang }).value
         }
-        sub3.appendChild(b3)
-      })
-
-      btn.onclick = () => {
-        const isOpen = sub3.classList.contains('open')
-        document.querySelectorAll('.nav-sub3').forEach(s => s.classList.remove('open'))
-        if (!isOpen && h3s.length) sub3.classList.add('open')
-        document.getElementById(h2.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }
-
-      subNav.appendChild(btn)
-      if (h3s.length) subNav.appendChild(sub3)
-    })
-
-    activeBtn.insertAdjacentElement('afterend', subNav)
-  }
-
-  function updateActiveSubItem() {
-    const h2items = document.querySelectorAll('.nav-sub-item')
-    if (!h2items.length) return
-    const allH = Array.from(document.querySelectorAll('#md-output h2, #md-output h3'))
-    let currentH2 = null, currentH3 = null
-    allH.forEach(h => {
-      if (h.getBoundingClientRect().top <= 90) {
-        if (h.tagName === 'H2') { currentH2 = h; currentH3 = null }
-        else currentH3 = h
+        return hljs.highlightAuto(code).value
       }
     })
-    h2items.forEach(btn => {
-      const active = btn.dataset.target === currentH2?.id
-      btn.classList.toggle('active', active)
-      if (active) {
-        const sub3 = btn.nextElementSibling
-        if (sub3?.classList.contains('nav-sub3')) sub3.classList.add('open')
-      }
-    })
-    document.querySelectorAll('.nav-sub3-item').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.target === currentH3?.id)
-    })
-  }
 
-  function loadPage(file, title) {
-    document.querySelectorAll('.nav-item').forEach(el => {
-      el.classList.toggle('active', el.dataset.file === file)
-    })
-    document.getElementById('topbar-title').textContent = title
-    document.querySelectorAll('.nav-sub').forEach(el => el.remove())
+    function slugify(text) {
+      return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    }
 
-    const output = document.getElementById('md-output')
-    const loading = document.getElementById('loading')
-    output.style.display = 'none'
-    loading.style.display = 'flex'
-    window.scrollTo({ top: 0 })
+    function buildSubNav(activeBtn) {
+      document.querySelectorAll('.nav-sub').forEach(el => el.remove())
 
-    fetch(file + '?v=' + Date.now())
-      .then(r => { if (!r.ok) throw new Error(r.status); return r.text() })
-      .then(md => {
-        output.innerHTML = marked.parse(md)
-        output.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el))
-        loading.style.display = 'none'
-        output.style.display = 'block'
-        const activeBtn = document.querySelector('.nav-item.active')
-        if (activeBtn) buildSubNav(activeBtn)
-        updateActiveSubItem()
+      const output = document.getElementById('md-output')
+      const allHeadings = Array.from(output.querySelectorAll('h2, h3'))
+      const h2s = allHeadings.filter(h => h.tagName === 'H2')
+      if (!h2s.length) return
+
+      allHeadings.forEach(h => {
+        if (!h.id) h.id = slugify(h.textContent)
       })
-      .catch(() => {
-        loading.style.display = 'none'
-        output.style.display = 'block'
-        output.innerHTML = `<h1>Coming soon</h1><p>This page hasn't been added yet.</p>`
+
+      const subNav = document.createElement('div')
+      subNav.className = 'nav-sub'
+
+      h2s.forEach((h2, i) => {
+        const nextH2 = h2s[i + 1]
+        const h3s = allHeadings.filter(h => h.tagName === 'H3' && 
+          h.compareDocumentPosition(h2) & Node.DOCUMENT_POSITION_PRECEDING &&
+          (!nextH2 || h.compareDocumentPosition(nextH2) & Node.DOCUMENT_POSITION_FOLLOWING))
+
+        const btn = document.createElement('button')
+        btn.className = 'nav-sub-item'
+        btn.textContent = h2.textContent
+        btn.dataset.target = h2.id
+
+        const sub3 = document.createElement('div')
+        sub3.className = 'nav-sub3'
+        sub3.dataset.parent = h2.id
+
+        h3s.forEach(h3 => {
+          const b3 = document.createElement('button')
+          b3.className = 'nav-sub3-item'
+          b3.textContent = h3.textContent
+          b3.dataset.target = h3.id
+          b3.onclick = (e) => {
+            e.stopPropagation()
+            document.getElementById(h3.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }
+          sub3.appendChild(b3)
+        })
+
+        btn.onclick = () => {
+          document.querySelectorAll('.nav-sub3').forEach(s => s.classList.remove('open'))
+          if (h3s.length) sub3.classList.add('open')
+          document.getElementById(h2.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+
+        subNav.appendChild(btn)
+        if (h3s.length) subNav.appendChild(sub3)
       })
-  }
 
-  window.addEventListener('scroll', () => {
-    document.getElementById('back-top').classList.toggle('visible', window.scrollY > 300)
-    updateActiveSubItem()
-  })
+      activeBtn.insertAdjacentElement('afterend', subNav)
+    }
 
-  loadPage('user-guide.md', 'User Guide')
-</script>
+    function updateActiveSubItem() {
+      const h2items = document.querySelectorAll('.nav-sub-item')
+      if (!h2items.length) return
+
+      const allH = Array.from(document.querySelectorAll('#md-output h2, #md-output h3'))
+      let currentH2 = null, currentH3 = null
+      allH.forEach(h => {
+        if (h.getBoundingClientRect().top <= 90) {
+          if (h.tagName === 'H2') { currentH2 = h; currentH3 = null }
+          else currentH3 = h
+        }
+      })
+
+      h2items.forEach(btn => {
+        const active = btn.dataset.target === currentH2?.id
+        btn.classList.toggle('active', active)
+        if (active) {
+          const sub3 = btn.nextElementSibling
+          if (sub3?.classList.contains('nav-sub3')) sub3.classList.add('open')
+        }
+      })
+
+      document.querySelectorAll('.nav-sub3-item').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.target === currentH3?.id)
+      })
+    }
+
+    function loadPage(file, title) {
+      document.querySelectorAll('.nav-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.file === file)
+      })
+      document.getElementById('topbar-title').textContent = title
+      document.querySelectorAll('.nav-sub').forEach(el => el.remove())
+
+      const output = document.getElementById('md-output')
+      const loading = document.getElementById('loading')
+      output.style.display = 'none'
+      loading.style.display = 'flex'
+      window.scrollTo({ top: 0 })
+
+      fetch(file + '?v=' + Date.now())
+        .then(r => { if (!r.ok) throw new Error(r.status); return r.text() })
+        .then(md => {
+          md = md.replace(/^---[\s\S]*?---\n?/, '')
+          output.innerHTML = marked.parse(md)
+          output.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el))
+          loading.style.display = 'none'
+          output.style.display = 'block'
+          const activeBtn = document.querySelector('.nav-item.active')
+          if (activeBtn) buildSubNav(activeBtn)
+          updateActiveSubItem()
+        })
+        .catch(() => {
+          loading.style.display = 'none'
+          output.style.display = 'block'
+          output.innerHTML = `<h1>Coming soon</h1><p>This page hasn't been added yet.</p>`
+        })
+    }
+
+    window.addEventListener('scroll', () => {
+      document.getElementById('back-top').classList.toggle('visible', window.scrollY > 300)
+      updateActiveSubItem()
+    })
+
+    // Start with your file
+    loadPage('user-guide.md', 'User Guide')
+  </script>
 </body>
 </html>
