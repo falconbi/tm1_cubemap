@@ -1,3 +1,8 @@
+---
+title: Home
+nav_order: 1
+---
+
 # TM1 CubeMap
 
 Interactive data lineage diagram for TM1 / Planning Analytics on-prem (V11 and V12).

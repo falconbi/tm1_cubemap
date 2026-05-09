@@ -1,0 +1,11 @@
+remote_theme: just-the-docs/just-the-docs
+title: TM1 CubeMap
+description: Interactive data lineage diagram for TM1 / Planning Analytics on-prem
+
+# Navigation
+nav_enabled: true
+heading_anchors: true
+search_enabled: true
+
+# Footer
+footer_content: "TM1 CubeMap — <a href='https://github.com/falconbi/tm1_cubemap'>GitHub</a>"

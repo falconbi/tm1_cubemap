@@ -1,3 +1,9 @@
+---
+title: User Guide
+nav_order: 2
+has_toc: true
+---
+
 # TM1 CubeMap — User Guide
 
 > **Phase 1 — Early Release.** CubeMap is in active development. Core features (graph visualisation, data lineage, calculation trace, AI documentation) are working but you may encounter rough edges. Feedback and bug reports are welcome via [GitHub Issues](https://github.com/falconbi/tm1_cubemap/issues).
