@@ -1,5 +1,5 @@
 #!/bin/bash
-# Launch the TM1 Governance Suite using the project virtualenv.
+# Launch the CubeMap using the project virtualenv.
 # Usage: ./run.sh
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

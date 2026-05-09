@@ -1,6 +1,6 @@
 # TM1 CubeMap
 
-Interactive data lineage diagram for IBM TM1 / Planning Analytics (V11 and V12 on-prem).
+Interactive data lineage diagram for TM1 / Planning Analytics **on-prem** (V11 recommended, V12 also supported).
 
 Visualises cubes, rules, TI processes, and Python ETL scripts as a navigable graph. Click any node to inspect rules, script code, dimensions, measures, and data flow. Switch between TM1 instances and databases from the toolbar without restarting.
 
@@ -11,15 +11,19 @@ Visualises cubes, rules, TI processes, and Python ETL scripts as a navigable gra
 **Prerequisites:** Docker and a TM1 V11 or V12 on-prem server.
 
 ```bash
-git clone https://github.com/falconbi/tm1_cubemap.git
-cd tm1_cubemap
-cp servers.json.example servers.json
-# edit servers.json with your TM1 instances
-cp .env.example .env
-docker compose up --build
+mkdir tm1-cubemap && cd tm1-cubemap
+curl -sSLO https://raw.githubusercontent.com/falconbi/tm1_cubemap/main/docker-compose.yml
+docker compose up -d
 ```
 
-Open **[http://localhost:8083](http://localhost:8083)** and click **Refresh** to extract your model.
+Open **[http://localhost:8084](http://localhost:8084)**. The first-run setup form walks you through adding your TM1 servers. No files to edit manually.
+
+Or if you cloned the repo:
+
+```bash
+cd tm1-cubemap
+docker compose up -d
+```
 
 ---
 
@@ -39,41 +43,62 @@ python3 app.py
 
 ### servers.json — TM1 instance registry
 
-Supports multiple TM1 instances with V12 OAuth2 and V11 Basic auth:
+Each entry is a TM1 server with one or more databases. **V11 on-prem** is the primary target; V12 also works.
 
-| Field | Description |
-|---|---|
-| `name` | Display name shown in the instance dropdown |
-| `address` | TM1 server IP or hostname |
-| `auth` | `"v12"` for OAuth2 client credentials, `"v11"` for Basic auth |
-| `client_id` / `client_secret` | V12 only — from your TM1 OAuth2 client |
-| `user` / `password` | V11: admin credentials / V12: username for session |
-| `databases[].name` | TM1 database (cube) name |
-| `databases[].port` | TM1 REST API port |
+See [`servers.json.example`](./servers.json.example) for a complete template.
+
+| Field | Required | Description |
+|---|---|---|
+| `name` | yes | Display name in the instance dropdown |
+| `address` | yes | TM1 server IP or hostname |
+| `auth` | yes | `"v11"` (Basic auth) or `"v12"` (OAuth2 client credentials) |
+| `user` | yes | Admin username |
+| `password` | V11 only | Admin password |
+| `client_id` / `client_secret` | V12 only | From your TM1 OAuth2 client registration |
+| `databases[]` | yes | One or more databases on this server |
+| `databases[].name` | yes | TM1 database (cube) name |
+| `databases[].port` | yes | TM1 REST API port (typically 8000–8015 for V11, 4444 for V12) |
+
+**V11 example:**
+```json
+{"name": "Prod", "address": "10.0.0.50", "auth": "v11",
+ "user": "admin", "password": "apple",
+ "databases": [{"name": "Finance", "port": 8000}]}
+```
+
+**V12 example:**
+```json
+{"name": "Prod V12", "address": "10.0.0.51", "auth": "v12",
+ "client_id": "abc", "client_secret": "xyz", "user": "admin",
+ "databases": [{"name": "Finance", "port": 4444}]}
+```
+
+> **Cloud (IBM Planning Analytics / PAaaS / SAP Analytics Cloud):** Not supported. If you need cloud support, the `auth` field would need a new type (e.g. `"paoc"` or `"cloud"`) with appropriate token-based authentication. Contributions welcome — see `core/tm1_connect.py` for the auth dispatch point.
 
 ### .env
 
 | Variable | Default | Description |
 |---|---|---|
-| `PORT` | `8083` | Flask server port |
+| `PORT` | `8083` | Flask server port (inside container; Docker exposes on 8084) |
 
 ---
 
 ## Requirements
 
-- TM1 / Planning Analytics **on-prem** — V11 or V12
-- V12: OAuth2 client credentials (`client_id` / `client_secret`)
-- V11: admin username and password
+- TM1 / Planning Analytics **on-prem** — V11 recommended, V12 also supported
+- V11: admin username and password (Basic auth)
+- V12: OAuth2 client credentials (`client_id` / `client_secret`) + admin username
+- REST API must be enabled on the TM1 server
 
-No SSO, no PAW, no Authentik required.
+No SSO, no PAW, no Authentik, no cloud required.
 
 ### Compatibility
 
 | Environment | Status | Notes |
 |---|---|---|
-| On-prem V12 + OAuth2 | Supported | `auth: "v12"` in servers.json |
-| On-prem V11 + Basic auth | Supported | `auth: "v11"` in servers.json |
-| Cloud (IBM PAaaS / SaaS) | Not yet supported | TM1py supports PAoC — new auth type needed |
+| **On-prem V11 + Basic auth** | **✅ Supported (primary)** | `auth: "v11"` in servers.json |
+| On-prem V12 + OAuth2 | ✅ Supported | `auth: "v12"` in servers.json |
+| Cloud (IBM PAaaS / SAP AC) | ❌ Not supported | See servers.json docs for guidance |
 
 ---
 

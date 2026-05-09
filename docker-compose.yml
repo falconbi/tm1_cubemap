@@ -1,11 +1,12 @@
 services:
   tm1-governance:
-    build: .
+    image: falconbi/tm1-cubemap:latest
     ports:
-      - "8083:8083"
+      - "8084:8083"
     env_file: .env
     volumes:
-      - tm1_data:/app/cube_map/layouts
+      - ./servers.json:/app/servers.json
+      - tm1_data:/app/cube_map
     restart: unless-stopped
 
 volumes:

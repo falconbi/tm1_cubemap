@@ -4375,15 +4375,6 @@ body{font-family:var(--font-ui);background:var(--bg);color:var(--text);display:f
 .search-input:focus{border-color:var(--accent2);}
 .search-input::placeholder{color:var(--muted);}
 
-.prefix-wrap{display:flex;align-items:center;gap:5px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:0 8px 0 10px;height:30px;}
-.prefix-label{font-size:11px;color:var(--muted);white-space:nowrap;}
-.prefix-input{background:none;border:none;color:var(--text);font-size:12px;font-family:var(--font-mono);width:110px;outline:none;padding:0;letter-spacing:.04em;}
-.prefix-input::placeholder{color:var(--muted);font-family:var(--font-ui);letter-spacing:0;font-size:11px;}
-.prefix-btn{background:rgba(56,139,253,.12);border:1px solid rgba(56,139,253,.25);color:#58a6ff;font-size:11px;font-family:var(--font-ui);padding:2px 8px;border-radius:3px;cursor:pointer;transition:all .15s;}
-.prefix-btn:hover{background:rgba(56,139,253,.22);}
-.prefix-clear{background:none;border:none;color:var(--muted);font-size:13px;line-height:1;cursor:pointer;padding:0 2px;transition:color .15s;display:none;}
-.prefix-clear:hover{color:var(--text);}
-.prefix-clear.visible{display:inline;}
 .filter-group{display:flex;gap:4px;flex-wrap:wrap;}
 .filter-btn{
   font-size:11px;font-family:var(--font-ui);padding:4px 10px;
@@ -4505,6 +4496,7 @@ body{font-family:var(--font-ui);background:var(--bg);color:var(--text);display:f
   transition:width .22s cubic-bezier(.4,0,.2,1);
 }
 .detail.open{width:310px;}
+.detail.expanded{width:min(650px,55vw);}
 .detail-header{
   padding:14px 16px 10px;border-bottom:1px solid var(--border);
   flex-shrink:0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;
@@ -4635,12 +4627,6 @@ body{font-family:var(--font-ui);background:var(--bg);color:var(--text);display:f
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.099zm-5.242 1.656a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11z"/></svg>
     <input class="search-input" id="searchInput" type="text" placeholder="Search cubes…">
   </div>
-  <div class="prefix-wrap" title="Show only cubes whose name starts with this prefix (e.g. CST, GBL). Leave blank for all.">
-    <span class="prefix-label">Prefix</span>
-    <input class="prefix-input" id="prefixInput" type="text" placeholder="e.g. CST, GBL" maxlength="12" oninput="document.getElementById('prefixClear').classList.toggle('visible',this.value.length>0)" onkeydown="if(event.key==='Enter')applyPrefixFilter();if(event.key==='Escape')clearPrefixFilter()">
-    <button class="prefix-clear" id="prefixClear" title="Clear filter" onclick="clearPrefixFilter()">&#x2715;</button>
-    <button class="prefix-btn" onclick="applyPrefixFilter()">Go</button>
-  </div>
   <div class="sep"></div>
   <div style="display:flex;align-items:center;gap:6px;margin-right:8px">
     <select id="serverInstanceSelect" onchange="onInstanceChange()" style="font-size:11px;padding:2px 6px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);cursor:pointer"></select>
@@ -4670,8 +4656,7 @@ body{font-family:var(--font-ui);background:var(--bg);color:var(--text);display:f
     <option value="cose">Force-Directed</option>
   </select>
   <button class="ctrl-btn" id="dimToggleBtn" onclick="toggleDimLabels(this)" title="Show dimension names on nodes">Dims</button>
-  <button class="ctrl-btn" id="ramHeatBtn" onclick="toggleRamHeatmap(this)" title="Heatmap node intensity by RAM usage">RAM</button>
-  <button class="ctrl-btn" id="pmToggleBtn" onclick="togglePerfMonitor()" title="Enable/disable TM1 Performance Monitor (required for RAM data)">PM ···</button>
+  <!-- RAM + PMon removed — untested -->
   <button class="ctrl-btn" onclick="cy.fit(cy.elements(), 50);showToast('View reset')">Fit</button>
   <button class="ctrl-btn" id="saveLayoutBtn" onclick="saveLayout()" title="Save current node positions">Save Layout</button>
   <div id="layoutMenuWrap" style="position:relative;display:inline-block;">
@@ -4708,14 +4693,19 @@ body{font-family:var(--font-ui);background:var(--bg);color:var(--text);display:f
         <div class="detail-name" id="dName">—</div>
         <span class="detail-type" id="dType"></span>
       </div>
-      <button class="close-btn" onclick="closePanel()">×</button>
+      <div style="display:flex;align-items:flex-start;gap:4px">
+        <button class="close-btn" onclick="togglePanelWidth()" title="Expand / collapse panel" style="font-size:13px;padding:0 2px">⛶</button>
+        <button class="close-btn" onclick="closePanel()">×</button>
+      </div>
     </div>
     <div style="display:flex;border-bottom:1px solid var(--border);padding:0 14px;gap:0">
       <button id="tabBtnDetail" onclick="showDetailTab()" style="font-size:11px;padding:6px 12px;border:none;border-bottom:2px solid var(--accent);background:none;color:var(--text1);cursor:pointer;font-weight:600">Detail</button>
       <button id="tabBtnSpec" onclick="showSpecTab()" style="font-size:11px;padding:6px 12px;border:none;border-bottom:2px solid transparent;background:none;color:var(--text2);cursor:pointer">Spec</button>
+      <button id="tabBtnTrace" onclick="showTraceTab()" style="font-size:11px;padding:6px 12px;border:none;border-bottom:2px solid transparent;background:none;color:var(--text2);cursor:pointer">Trace</button>
     </div>
     <div class="detail-body" id="dBody"></div>
     <div class="detail-body" id="dBodySpec" style="display:none"></div>
+    <div class="detail-body" id="dBodyTrace" style="display:none"></div>
   </div>
 </div>
 
@@ -4749,12 +4739,6 @@ function objectColor(id, c) {
   const tags = getTagsForCube(id);
   return tags.length ? (TAGS.tagDefs[tags[0]] || '#6e7681') : '#6e7681';
 }
-const TYPE_LABEL = {
-  input:'Input', driver:'Driver', allocation:'Allocation',
-  rollup:'Cost roll-up', report:'Report output', recon:'Reconciliation',
-  python:'Python ETL', ti:'TI Process',
-};
-
 /* ── TAGS ───────────────────────────────────────────────────── */
 let TAGS = { tagDefs: {}, cubeTags: {} };
 const TAG_PALETTE = ['#1f6feb','#3fb950','#d29922','#f78166','#8957e5','#e36209','#f85149','#58a6ff','#56d364','#e3b341'];
@@ -5131,13 +5115,11 @@ initRamBtn();
 
 /* ── SIDEBAR ────────────────────────────────────────────────── */
 let _sidebarSelectedTag = '';
-function buildSidebar(prefixFilter){
+function buildSidebar(){
   const el = document.getElementById('sidebarList');
   el.innerHTML = '';
-  const pf = (prefixFilter||'').toUpperCase();
   const groups = {cube:[], python:[], ti:[]};
   Object.entries(CUBES).forEach(([id,c])=>{
-    if(pf && !id.toUpperCase().startsWith(pf)) return;
     if (c.type === 'python') groups.python.push([id,c]);
     else if (c.type === 'ti') groups.ti.push([id,c]);
     else groups.cube.push([id,c]);
@@ -5207,7 +5189,7 @@ function openPythonPanel(id) {
   const c = CUBES[id]; if(!c) return;
   document.getElementById('dName').textContent = id;
   const dt = document.getElementById('dType');
-  dt.textContent = TYPE_LABEL['python'];
+  dt.textContent = 'python';
   dt.style.cssText = `background:#1f6feb22;border:1px solid #1f6feb44;color:#58a6ff;`;
 
   const readsHtml = (c.from||[]).length
@@ -5256,7 +5238,7 @@ function openTiPanel(id) {
   const c = CUBES[id]; if(!c) return;
   document.getElementById('dName').textContent = id;
   const dt = document.getElementById('dType');
-  dt.textContent = TYPE_LABEL['ti'];
+  dt.textContent = 'ti';
   dt.style.cssText = `background:#f7816622;border:1px solid #f7816644;color:#f78166;`;
 
   const readsHtml = (c.from||[]).length
@@ -5395,7 +5377,7 @@ function openPanel(id){
 
   const dt = document.getElementById('dType');
   const panelColor = objectColor(id, c);
-  dt.textContent = TYPE_LABEL[c.type] || c.type;
+  dt.textContent = c.type;
   dt.style.cssText = `background:${panelColor}22;border:1px solid ${panelColor}44;color:${panelColor};`;
 
   // Trust badge
@@ -5411,12 +5393,6 @@ function openPanel(id){
   const r = c.rules;
   let rulesHtml = '';
   if(r.total > 0){
-    const score = r.lines*1 + r.dbRefs*5 + r.ifs*3 + r.feeders*2;
-    let compClass='low', compLabel='🟢 LOW';
-    if(score>60&&score<=150){compClass='medium';compLabel='🟡 MEDIUM';}
-    else if(score>150&&score<=300){compClass='high';compLabel='🟠 HIGH';}
-    else if(score>300){compClass='very-high';compLabel='🔴 VERY HIGH';}
-
     rulesHtml = `<div class="d-section">
       <div class="d-label" style="display:flex;align-items:center;justify-content:space-between;">
         Rules analysis
@@ -5432,7 +5408,6 @@ function openPanel(id){
         <div class="rules-cell"><div class="val">${r.stet}</div><div class="lbl">STET</div></div>
         <div class="rules-cell"><div class="val">${r.skip}</div><div class="lbl">SKIP</div></div>
       </div>
-      <span class="complexity-badge ${compClass}">${compLabel} complexity</span>
     </div>`;
   } else {
     rulesHtml = `<div class="d-section">
@@ -5527,20 +5502,39 @@ function closePanel(){
   resetAll();
 }
 
+function togglePanelWidth() {
+  document.getElementById('detailPanel').classList.toggle('expanded');
+}
+
 /* ── SPEC EDITOR ────────────────────────────────────────────────── */
 let _currentPanelId = null;
 let _specPanelActive = false;
+let _tracePanelActive = false;
 
 function _setActiveTab(tab) {
   _specPanelActive = tab === 'spec';
-  document.getElementById('dBody').style.display        = _specPanelActive ? 'none' : '';
-  document.getElementById('dBodySpec').style.display    = _specPanelActive ? '' : 'none';
-  document.getElementById('tabBtnDetail').style.borderBottomColor = _specPanelActive ? 'transparent' : 'var(--accent)';
-  document.getElementById('tabBtnDetail').style.color             = _specPanelActive ? 'var(--text2)' : 'var(--text1)';
-  document.getElementById('tabBtnDetail').style.fontWeight        = _specPanelActive ? '400' : '600';
-  document.getElementById('tabBtnSpec').style.borderBottomColor   = _specPanelActive ? 'var(--accent)' : 'transparent';
-  document.getElementById('tabBtnSpec').style.color               = _specPanelActive ? 'var(--text1)' : 'var(--text2)';
-  document.getElementById('tabBtnSpec').style.fontWeight          = _specPanelActive ? '600' : '400';
+  _tracePanelActive = tab === 'trace';
+  const isDetail = tab === 'detail';
+  document.getElementById('dBody').style.display       = isDetail ? '' : 'none';
+  document.getElementById('dBodySpec').style.display   = tab === 'spec' ? '' : 'none';
+  document.getElementById('dBodyTrace').style.display  = tab === 'trace' ? '' : 'none';
+
+  const resetBtn = (id) => {
+    const el = document.getElementById(id);
+    el.style.borderBottomColor = 'transparent';
+    el.style.color = 'var(--text2)';
+    el.style.fontWeight = '400';
+  };
+  const activeBtn = (id) => {
+    const el = document.getElementById(id);
+    el.style.borderBottomColor = 'var(--accent)';
+    el.style.color = 'var(--text1)';
+    el.style.fontWeight = '600';
+  };
+  resetBtn('tabBtnDetail'); resetBtn('tabBtnSpec'); resetBtn('tabBtnTrace');
+  if (isDetail) activeBtn('tabBtnDetail');
+  else if (tab === 'spec') activeBtn('tabBtnSpec');
+  else activeBtn('tabBtnTrace');
 }
 
 function showDetailTab() { _setActiveTab('detail'); }
@@ -5548,6 +5542,318 @@ function showDetailTab() { _setActiveTab('detail'); }
 function showSpecTab() {
   _setActiveTab('spec');
   if (_currentPanelId) _loadSpec(_currentPanelId);
+}
+
+function showTraceTab() {
+  _setActiveTab('trace');
+  if (_currentPanelId) _renderTrace(_currentPanelId);
+}
+
+/* ── CALCULATION TRACE (Rules + TI + Exec) ────────────────────── */
+
+function _ruleMeasure(elemMatch) {
+  const raw = elemMatch.split(',')[0].trim();
+  return raw.startsWith("'") ? raw.slice(1, -1) : raw;
+}
+
+function _findExecutedProcesses(tiData) {
+  const names = new Set();
+  const code = tiData.tiCode || {};
+  const sections = [code.prolog, code.metadata, code.data, code.epilog];
+  const re = /ExecuteProcess\s*\(\s*'([^']+)'/gi;
+  for (const section of sections) {
+    if (!section) continue;
+    let m;
+    while ((m = re.exec(section)) !== null) {
+      const procName = m[1];
+      if (CUBES[procName] && CUBES[procName].type === 'ti') {
+        names.add(procName);
+      }
+    }
+  }
+  return [...names];
+}
+
+function _traceExecChain(tiData, measureName, visited, depth) {
+  if (depth > 5) return [];
+  const lineage = [];
+  const infra = [];
+  const execNames = _findExecutedProcesses(tiData);
+  for (const procName of execNames) {
+    if (visited.has(procName)) continue;
+    const procData = CUBES[procName];
+    if (!procData || procData.type !== 'ti') continue;
+
+    const newVisited = new Set(visited);
+    newVisited.add(procName);
+
+    // Trace what this executed process reads from
+    const procInputs = [];
+    for (const re of (procData.from || [])) {
+      if (!newVisited.has(re.n)) {
+        const sub = _traceCombined(re.n, measureName, newVisited, depth + 1);
+        procInputs.push(...sub);
+      }
+    }
+
+    // Recursively trace its own ExecuteProcess calls
+    const procExecs = _traceExecChain(procData, measureName, newVisited, depth + 1);
+
+    const node = {
+      type: 'exec',
+      tiName: procName,
+      reads: (procData.from || []).map(e => e.n),
+      writes: (procData.to || []).map(e => e.n),
+      children: [...procInputs, ...procExecs]
+    };
+
+    // Split: processes with cube writes stay in lineage chain;
+    // utility processes (no writes) go to collapsed infrastructure section
+    if (node.writes && node.writes.length) {
+      lineage.push(node);
+    } else {
+      infra.push(node);
+    }
+  }
+
+  const result = [...lineage];
+  if (infra.length) {
+    result.push({ type: 'infrastructure', children: infra });
+  }
+  return result;
+}
+
+function _traceCombined(cubeId, measureName, visited, depth) {
+  if (depth > 5) return [{ type: 'maxdepth', label: `(max depth reached)`, children: [] }];
+  if (visited.has(cubeId)) return [{ type: 'cycle', label: `(circular reference — already traced)`, children: [] }];
+
+  const c = CUBES[cubeId];
+  if (!c) return [{ type: 'missing', label: `(cube not in model)`, children: [] }];
+
+  visited = new Set(visited);
+  visited.add(cubeId);
+
+  const rulesText = c.rulesText || '';
+  const results = [];
+
+  // 1. Rules leg: find DB() refs for this measure
+  const rulesChildren = [];
+  if (rulesText) {
+    const lines = rulesText.split('\n');
+    for (const raw of lines) {
+      const trimmed = raw.trim();
+      if (!trimmed.includes(measureName) || !trimmed.includes('DB(')) continue;
+      const m = trimmed.match(/^\s*\[([^\]]+)\]\s*=\s*(N:|C:)/);
+      if (!m) continue;
+      const ruleEl = _ruleMeasure(m[1]);
+      if (ruleEl !== measureName) continue;
+
+      const dbRe = /DB\s*\(\s*'([^']+)'/g;
+      let match;
+      while ((match = dbRe.exec(trimmed)) !== null) {
+        const srcCube = match[1];
+        if (srcCube === cubeId) continue;
+        const snippet = trimmed.substring(0, 100).replace(/\s+/g, ' ');
+        const children = _traceCombined(srcCube, measureName, visited, depth + 1);
+        rulesChildren.push({ type: 'ref', cube: srcCube, measure: measureName, snippet, children });
+      }
+    }
+  }
+
+  // 2. TI leg: find TI processes that write TO this cube,
+  //     then trace back through each cube the TI reads FROM
+  const tiChildren = [];
+  const fromEdges = c.from || [];
+  for (const edge of fromEdges) {
+    if (edge.t !== 'ti') continue;
+    const tiData = CUBES[edge.n];
+    if (!tiData) continue;
+
+    const tiInputChildren = [];
+    const readEdges = tiData.from || []; // cubes the TI reads FROM
+    for (const re of readEdges) {
+      if (!visited.has(re.n)) {
+        const sub = _traceCombined(re.n, measureName, visited, depth + 1);
+        tiInputChildren.push(...sub);
+      }
+    }
+
+    // Also trace ExecuteProcess calls from this TI
+    const execChildren = _traceExecChain(tiData, measureName, visited, depth + 1);
+    tiInputChildren.push(...execChildren);
+
+    tiChildren.push({
+      type: 'ti',
+      tiName: edge.n,
+      reads: readEdges.map(e => e.n),
+      writes: (tiData.to || []).map(e => e.n),
+      children: tiInputChildren
+    });
+  }
+
+  // 3. Combine
+  if (!rulesChildren.length && !tiChildren.length) {
+    if (!rulesText) {
+      results.push({ type: 'terminal', label: `(no rules — no TI processes load this cube)`, children: [] });
+    } else {
+      results.push({ type: 'terminal', label: `measure "${measureName}" not resolved via DB() in rules`, children: [] });
+    }
+  } else {
+    results.push(...rulesChildren, ...tiChildren);
+  }
+
+  return results;
+}
+
+function _renderTrace(cubeId) {
+  const el = document.getElementById('dBodyTrace');
+  const c = CUBES[cubeId];
+  if (!c) { el.innerHTML = '<p class="d-desc" style="padding:12px;opacity:.5">Cube not found</p>'; return; }
+
+  const rulesText = c.rulesText || '';
+  const hasRules = !!rulesText;
+
+  // --- No rules: show only TI processes that write to this cube ---
+  if (!hasRules) {
+    const tiWriters = (c.from || []).filter(e => e.t === 'ti');
+    if (!tiWriters.length) {
+      el.innerHTML = '<p class="d-desc" style="padding:12px;opacity:.5">No rules and no TI processes write to this cube</p>';
+      return;
+    }
+    const tiNodes = [];
+    for (const edge of tiWriters) {
+      const tiData = CUBES[edge.n];
+      if (!tiData) continue;
+      const execChildren = _traceExecChain(tiData, '', new Set(), 0);
+      tiNodes.push({
+        type: 'ti',
+        tiName: edge.n,
+        reads: (tiData.from || []).map(e => e.n),
+        writes: (tiData.to || []).map(e => e.n),
+        children: execChildren
+      });
+    }
+    el.innerHTML = `
+      <div style="padding:10px 12px;border-bottom:1px solid var(--border)">
+        <label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">TI processes that write to this cube</label>
+      </div>
+      <div id="traceTree" style="padding:8px 12px;overflow-y:auto;flex:1;font-size:11px;font-family:var(--font-mono);line-height:1.7"></div>
+    `;
+    document.getElementById('traceTree').innerHTML = _renderTraceTree(tiNodes, 0);
+    return;
+  }
+
+  // --- Has rules: show measure selector + combined trace (Rules + TI legs) ---
+  const measureSet = new Set();
+  for (const line of rulesText.split('\n')) {
+    const m = line.match(/^\s*\[([^\]]+)\]\s*=\s*(N:|C:)/);
+    if (m) measureSet.add(_ruleMeasure(m[1]));
+  }
+  const measures = [...measureSet].sort();
+  if (!measures.length) {
+    el.innerHTML = '<p class="d-desc" style="padding:12px;opacity:.5">No measure assignments found in rules</p>';
+    return;
+  }
+
+  const selected = _traceSelectedMeasure || measures[0];
+  _traceSelectedMeasure = selected;
+
+  el.innerHTML = `
+    <div style="padding:10px 12px;border-bottom:1px solid var(--border)">
+      <label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px">Measure</label>
+      <select id="traceMeasureSelect" onchange="_traceSelectedMeasure=this.value;_renderTrace('${cubeId}')"
+        style="width:100%;font-size:11px;padding:3px 6px;border-radius:4px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2)">
+        ${measures.map(m => `<option value="${m}" ${m===selected?'selected':''}>${m}</option>`).join('')}
+      </select>
+    </div>
+    <div id="traceTree" style="padding:8px 12px;overflow-y:auto;flex:1;font-size:11px;font-family:var(--font-mono);line-height:1.7"></div>
+  `;
+
+  const tree = document.getElementById('traceTree');
+  const root = [{ type: 'ref', cube: cubeId, measure: selected, snippet: '', children: _traceCombined(cubeId, selected, new Set(), 0) }];
+  tree.innerHTML = _renderTraceTree(root, 0);
+}
+
+let _traceSelectedMeasure = '';
+
+function _renderTraceTree(nodes, depth) {
+  let html = '';
+  for (const n of nodes) {
+    if (n.type === 'ref') {
+      const isRoot = depth === 0;
+      const arrow = isRoot ? '' : '└─ ';
+      const clickable = n.cube && CUBES[n.cube] ? ` onclick="event.stopPropagation();selectCube('${n.cube}')" style="cursor:pointer;color:var(--accent)"` : '';
+      html += `<div style="padding-left:${depth*16}px">`;
+      if (isRoot) {
+        html += `<strong style="color:var(--text)">${n.cube} : ${n.measure}</strong>`;
+      } else {
+        html += `<span style="color:var(--muted)">${arrow}</span><span${clickable}>${n.cube}</span><span style="color:var(--muted2)"> : ${n.measure}</span>`;
+      }
+      if (n.snippet && !isRoot) {
+        html += `<div style="padding-left:16px;font-size:10px;color:var(--muted);white-space:pre-wrap;margin-bottom:4px">${_escapeHtml(n.snippet)}</div>`;
+      }
+      if (n.children && n.children.length) {
+        html += _renderTraceTree(n.children, depth + 1);
+      }
+      html += '</div>';
+
+    } else if (n.type === 'ti') {
+      html += `<div style="padding-left:${depth*16}px">`;
+      html += `<span style="color:var(--muted2)">${depth > 0 ? '└─ ' : ''}</span>`;
+      html += `<span style="color:#f78166;font-weight:600">[TI]</span> `;
+      const tiClickable = CUBES[n.tiName] ? ` onclick="event.stopPropagation();selectCube('${n.tiName}')" style="cursor:pointer;color:var(--accent)"` : '';
+      html += `<span${tiClickable}>${_escapeHtml(n.tiName)}</span>`;
+      if (n.reads && n.reads.length) {
+        html += `<div style="padding-left:${(depth+1)*16}px;font-size:10px;color:var(--muted2)">reads: ${_escapeHtml(n.reads.join(', '))}</div>`;
+      }
+      if (n.writes && n.writes.length) {
+        html += `<div style="padding-left:${(depth+1)*16}px;font-size:10px;color:var(--muted2)">writes: ${_escapeHtml(n.writes.join(', '))}</div>`;
+      }
+      if (n.children && n.children.length) {
+        html += _renderTraceTree(n.children, depth + 1);
+      }
+      html += '</div>';
+
+    } else if (n.type === 'exec') {
+      html += `<div style="padding-left:${depth*16}px">`;
+      html += `<span style="color:var(--muted2)">${depth > 0 ? '└─ ' : ''}</span>`;
+      html += `<span style="color:#a371f7;font-weight:600">[Exec]</span> `;
+      const execClickable = CUBES[n.tiName] ? ` onclick="event.stopPropagation();selectCube('${n.tiName}')" style="cursor:pointer;color:var(--accent)"` : '';
+      html += `<span${execClickable}>${_escapeHtml(n.tiName)}</span>`;
+      if (n.reads && n.reads.length) {
+        html += `<div style="padding-left:${(depth+1)*16}px;font-size:10px;color:var(--muted2)">reads: ${_escapeHtml(n.reads.join(', '))}</div>`;
+      }
+      if (n.writes && n.writes.length) {
+        html += `<div style="padding-left:${(depth+1)*16}px;font-size:10px;color:var(--muted2)">writes: ${_escapeHtml(n.writes.join(', '))}</div>`;
+      }
+      if (n.children && n.children.length) {
+        html += _renderTraceTree(n.children, depth + 1);
+      }
+      html += '</div>';
+
+    } else if (n.type === 'infrastructure') {
+      const count = n.children ? n.children.length : 0;
+      const uid = 'infra_' + (Math.random().toString(36).slice(2, 8));
+      html += `<div style="padding-left:${depth*16}px">`;
+      html += `<span onclick="var e=document.getElementById('${uid}');var t=this;e.style.display=e.style.display==='none'?'':'none';t.textContent=t.textContent.startsWith('▶')?t.textContent.replace('▶','▼'):t.textContent.replace('▼','▶')" style="cursor:pointer;color:var(--muted2);font-size:10px">▶ Infrastructure calls (${count})</span>`;
+      html += '</div>';
+      html += `<div id="${uid}" style="display:none">`;
+      if (n.children && n.children.length) {
+        html += _renderTraceTree(n.children, depth + 1);
+      }
+      html += '</div>';
+
+    } else {
+      html += `<div style="padding-left:${depth*16}px;color:var(--muted2);font-size:10px">${_escapeHtml(n.label)}</div>`;
+    }
+  }
+  return html;
+}
+
+function _escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
 }
 
 function _loadSpec(id) {
@@ -5829,7 +6135,7 @@ cy.on('mouseover','node', evt=>{
       + `<div style="font-size:9px;opacity:.45;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Measures (${c.measures.length})</div>`
       + rows;
   } else {
-    tooltip.innerHTML=`<strong style="color:${ttColor}">${id}</strong><br><span style="opacity:.5;font-size:10px">${c.dims?.length||0} dims · ${TYPE_LABEL[c.type]}</span>`;
+    tooltip.innerHTML=`<strong style="color:${ttColor}">${id}</strong><br><span style="opacity:.5;font-size:10px">${c.dims?.length||0} dims · ${c.type}</span>`;
   }
   tooltip.style.opacity='1';
 });
@@ -6032,7 +6338,7 @@ function refreshSidebarTagSelect() {
 
 function onSidebarTagChange(sel) {
   _sidebarSelectedTag = sel.value || '';
-  buildSidebar(document.getElementById('prefixInput')?.value || '');
+  buildSidebar();
 }
 
 function newSidebarTag() {
@@ -6053,7 +6359,7 @@ function toggleSidebarTag(cubeId) {
   } else {
     addTagToCube(cubeId, _sidebarSelectedTag);
   }
-  buildSidebar(document.getElementById('prefixInput')?.value || '');
+  buildSidebar();
 }
 
 
@@ -6401,62 +6707,7 @@ try {
   if (saved === 'light') { isDark = false; applyTheme(); }
 } catch(e) {}
 
-/* ── PREFIX FILTER ──────────────────────────────────────────── */
-function applyPrefixFilter() {
-  const prefix = document.getElementById('prefixInput').value.trim().toUpperCase();
 
-  // Filter CUBES object in memory
-  const visibleIds = new Set(
-    Object.keys(CUBES).filter(id =>
-      !prefix || id.toUpperCase().startsWith(prefix)
-    )
-  );
-
-  // Show/hide nodes
-  cy.nodes().forEach(n => {
-    const show = visibleIds.has(n.id());
-    n.style('display', show ? 'element' : 'none');
-  });
-
-  // Show/hide edges — only if both endpoints visible
-  cy.edges().forEach(e => {
-    const srcVis = cy.$id(e.data('source')).style('display') !== 'none';
-    const tgtVis = cy.$id(e.data('target')).style('display') !== 'none';
-    e.style('display', srcVis && tgtVis ? 'element' : 'none');
-  });
-
-  // Rebuild sidebar to show only matching cubes
-  buildSidebar(prefix);
-
-  // Re-run layout on visible nodes only
-  const visibleEles = cy.elements().filter(e => e.style('display') !== 'none');
-  cy.layout({
-    name:'dagre', rankDir:'LR', nodeSep:45, rankSep:100,
-    eles: visibleEles, padding:60, animate:true, animationDuration:400
-  }).run();
-
-  // Update sidebar count
-  const count = visibleIds.size;
-  document.querySelector('.sidebar-title').textContent =
-    prefix ? `Objects (${count} · "${prefix}*")` : `Objects (${count})`;
-
-  if (IS_LIVE && prefix) {
-    // Optionally trigger a server-side filtered refresh
-    showToast(`Showing ${count} cube${count!==1?'s':''} matching "${prefix}*"`);
-  } else if (IS_LIVE) {
-    showToast(`Showing all ${count} cubes`);
-  } else {
-    showToast(prefix ? `Filter: "${prefix}*" — ${count} cubes` : `All ${count} cubes`);
-  }
-}
-
-function clearPrefixFilter() {
-  const input = document.getElementById('prefixInput');
-  input.value = '';
-  document.getElementById('prefixClear').classList.remove('visible');
-  applyPrefixFilter();
-  input.focus();
-}
 
 /* ── REFRESH / API ──────────────────────────────────────────── */
 const IS_LIVE = window.location.protocol !== 'file:';  // false when opened as file://
@@ -6481,7 +6732,7 @@ function triggerRefresh() {
   fetch('/api/refresh', {
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({prefix: document.getElementById('prefixInput').value.trim()})
+    body: JSON.stringify({})
   })
     .then(r => r.json())
     .then(data => {

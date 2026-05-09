@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TM1 CubeMap — Setup</title>
+<style>
+:root{
+  --bg:#0d1117; --bg2:#161b22; --bg3:#1c2333; --bg4:#21262d;
+  --border:#21262d; --border2:#30363d; --border3:#3d444d;
+  --text:#e6edf3; --text2:#c9d1d9; --muted:#7d8590;
+  --accent:#58a6ff; --accent2:#388bfd; --green:#3fb950;
+  --font-ui:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  font-family:var(--font-ui);background:var(--bg);color:var(--text);
+  min-height:100vh;display:flex;flex-direction:column;
+  align-items:center;padding:40px 20px;
+}
+.container{width:100%;max-width:720px;}
+h1{font-size:22px;font-weight:600;margin-bottom:4px;}
+.subtitle{color:var(--muted);font-size:13px;margin-bottom:28px;}
+.card{
+  background:var(--bg2);border:1px solid var(--border2);
+  border-radius:10px;padding:24px;margin-bottom:20px;
+}
+.card h2{font-size:15px;font-weight:600;margin-bottom:16px;color:var(--accent);}
+.form-row{margin-bottom:14px;}
+.form-row label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;font-weight:500;}
+.form-row input,.form-row select{
+  width:100%;padding:8px 10px;font-size:13px;font-family:var(--font-ui);
+  background:var(--bg3);border:1px solid var(--border2);border-radius:6px;
+  color:var(--text);outline:none;transition:border-color .15s;
+}
+.form-row input:focus,.form-row select:focus{border-color:var(--accent2);}
+.form-row input::placeholder{color:var(--muted);font-size:12px;}
+.form-row-inline{display:flex;gap:10px;}
+.form-row-inline>*{flex:1;}
+.cred-row{display:flex;gap:10px;}
+.cred-field{flex:1;}
+.sub-card{
+  background:var(--bg3);border:1px solid var(--border3);
+  border-radius:8px;padding:14px;margin-bottom:10px;position:relative;
+}
+.sub-card h3{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:10px;}
+.remove-btn{
+  position:absolute;top:10px;right:12px;
+  background:none;border:none;color:var(--muted);font-size:16px;
+  cursor:pointer;line-height:1;padding:2px;transition:color .15s;
+}
+.remove-btn:hover{color:#f85149;}
+.add-btn{
+  background:rgba(56,139,253,.1);border:1px dashed var(--border2);
+  color:var(--accent);font-size:12px;font-family:var(--font-ui);
+  padding:8px 14px;border-radius:6px;cursor:pointer;width:100%;
+  transition:background .15s;
+}
+.add-btn:hover{background:rgba(56,139,253,.18);}
+.actions{margin-top:20px;}
+.btn-primary{
+  background:var(--accent2);border:none;color:#fff;
+  font-size:14px;font-weight:600;font-family:var(--font-ui);
+  padding:10px 28px;border-radius:8px;cursor:pointer;
+  transition:background .15s;width:100%;
+}
+.btn-primary:hover{background:#2d7bd6;}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+.toast{
+  display:none;padding:10px 16px;border-radius:6px;font-size:13px;margin-bottom:16px;
+}
+.toast.error{display:block;background:rgba(248,81,73,.15);border:1px solid rgba(248,81,73,.3);color:#f85149;}
+.toast.success{display:block;background:rgba(63,185,80,.15);border:1px solid rgba(63,185,80,.3);color:var(--green);}
+.hidden{display:none;}
+.footer{text-align:center;color:var(--muted);font-size:12px;margin-top:20px;}
+.footer a{color:var(--accent);text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>TM1 CubeMap</h1>
+  <p class="subtitle">Configure your TM1 server to get started</p>
+  <div id="toast" class="toast"></div>
+  <form id="setupForm" onsubmit="saveConfig(event)">
+    <div id="serverCards"></div>
+    <button type="button" class="add-btn" onclick="addServer()">＋ Add another TM1 server</button>
+    <div class="actions">
+      <button type="submit" class="btn-primary" id="saveBtn">Save & Launch</button>
+    </div>
+  </form>
+  <div class="footer"><a href="https://github.com/falconbi/tm1_cubemap" target="_blank">GitHub</a></div>
+</div>
+
+<script>
+let serverCount = 0;
+
+function addServer(data) {
+  const idx = serverCount++;
+  const auth = data?.auth || 'v11';
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.id = 'server-' + idx;
+  card.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h2>TM1 Server ${idx + 1}</h2>
+      ${idx > 0 ? `<button type="button" class="remove-btn" onclick="this.closest('.card').remove()">✕</button>` : ''}
+    </div>
+    <div class="form-row">
+      <label>Server name</label>
+      <input type="text" name="name-${idx}" placeholder="e.g. V11 Production" value="${data?.name || ''}" required>
+    </div>
+    <div class="form-row-inline">
+      <div class="form-row">
+        <label>Address</label>
+        <input type="text" name="address-${idx}" placeholder="e.g. 192.168.1.179" value="${data?.address || ''}" required>
+      </div>
+      <div class="form-row">
+        <label>Auth type</label>
+        <select name="auth-${idx}" onchange="toggleAuth(${idx})">
+          <option value="v11" ${auth === 'v11' ? 'selected' : ''}>V11 on-prem</option>
+          <option value="v12" ${auth === 'v12' ? 'selected' : ''}>V12 on-prem</option>
+        </select>
+      </div>
+    </div>
+    <div class="cred-row" id="cred-v11-${idx}">
+      <div class="cred-field form-row">
+        <label>Username</label>
+        <input type="text" name="user-${idx}" placeholder="admin" value="${data?.user || ''}" ${auth === 'v11' ? 'required' : ''}>
+      </div>
+      <div class="cred-field form-row">
+        <label>Password</label>
+        <input type="password" name="password-${idx}" placeholder="TM1 password" value="${data?.password || ''}" ${auth === 'v11' ? 'required' : ''}>
+      </div>
+    </div>
+    <div class="cred-row" id="cred-v12-${idx}" style="display:${auth === 'v12' ? 'flex' : 'none'}">
+      <div class="cred-field form-row">
+        <label>Client ID</label>
+        <input type="text" name="client_id-${idx}" placeholder="OAuth2 client ID" value="${data?.client_id || ''}" ${auth === 'v12' ? 'required' : ''}>
+      </div>
+      <div class="cred-field form-row">
+        <label>Client Secret</label>
+        <input type="password" name="client_secret-${idx}" placeholder="OAuth2 client secret" value="${data?.client_secret || ''}" ${auth === 'v12' ? 'required' : ''}>
+      </div>
+    </div>
+    <div id="dbList-${idx}"></div>
+    <button type="button" class="add-btn" onclick="addDb(${idx})" style="margin-top:4px;">＋ Add database</button>
+  `;
+  document.getElementById('serverCards').appendChild(card);
+
+  if (data && data.databases) data.databases.forEach(db => addDb(idx, db));
+  if (!data || !data.databases || data.databases.length === 0) addDb(idx);
+}
+
+function toggleAuth(idx) {
+  const auth = document.querySelector(`[name="auth-${idx}"]`).value;
+  const v11 = document.getElementById(`cred-v11-${idx}`);
+  const v12 = document.getElementById(`cred-v12-${idx}`);
+  const u = v11.querySelector('[name="user-' + idx + '"]');
+  const p = v11.querySelector('[name="password-' + idx + '"]');
+  const cid = v12.querySelector('[name="client_id-' + idx + '"]');
+  const cs = v12.querySelector('[name="client_secret-' + idx + '"]');
+
+  if (auth === 'v11') {
+    v11.style.display = 'flex';
+    v12.style.display = 'none';
+    u.required = true; p.required = true;
+    cid.required = false; cs.required = false;
+  } else {
+    v11.style.display = 'flex';
+    v12.style.display = 'flex';
+    u.required = true; p.required = false;
+    cid.required = true; cs.required = true;
+    u.placeholder = 'TM1 user to impersonate';
+  }
+}
+
+function addDb(serverIdx, data) {
+  const list = document.getElementById('dbList-' + serverIdx);
+  const dbIdx = list.children.length;
+  const div = document.createElement('div');
+  div.className = 'sub-card';
+  div.innerHTML = `
+    <h3>Database ${dbIdx + 1}</h3>
+    ${dbIdx > 0 ? `<button type="button" class="remove-btn" onclick="this.closest('.sub-card').remove()">✕</button>` : ''}
+    <div class="form-row-inline">
+      <div class="form-row">
+        <label>Database name</label>
+        <input type="text" placeholder="e.g. SData" value="${data?.name || ''}" required>
+      </div>
+      <div class="form-row">
+        <label>Port</label>
+        <input type="number" placeholder="e.g. 8010" value="${data?.port || ''}" required>
+      </div>
+    </div>
+  `;
+  list.appendChild(div);
+}
+
+async function saveConfig(e) {
+  e.preventDefault();
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true; btn.textContent = 'Saving...';
+
+  const servers = [];
+  for (const card of document.querySelectorAll('#serverCards .card')) {
+    const id = card.id.split('-')[1];
+    const auth = card.querySelector('[name="auth-' + id + '"]').value;
+    const dbs = [];
+    for (const db of card.querySelectorAll('.sub-card')) {
+      const inputs = db.querySelectorAll('input');
+      dbs.push({ name: inputs[0].value.trim(), port: parseInt(inputs[1].value) });
+    }
+    const s = {
+      name: card.querySelector('[name="name-' + id + '"]').value.trim(),
+      address: card.querySelector('[name="address-' + id + '"]').value.trim(),
+      auth,
+      user: card.querySelector('[name="user-' + id + '"]').value.trim(),
+      databases: dbs,
+    };
+    if (auth === 'v11') {
+      s.password = card.querySelector('[name="password-' + id + '"]').value;
+    } else {
+      s.client_id = card.querySelector('[name="client_id-' + id + '"]').value.trim();
+      s.client_secret = card.querySelector('[name="client_secret-' + id + '"]').value;
+    }
+    servers.push(s);
+  }
+
+  try {
+    const res = await fetch('/api/setup/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ servers }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Save failed');
+    }
+    showToast('Configuration saved! Loading CubeMap...', 'success');
+    setTimeout(() => { window.location.href = '/'; }, 1000);
+  } catch (err) {
+    showToast(err.message, 'error');
+    btn.disabled = false; btn.textContent = 'Save & Launch';
+  }
+}
+
+function showToast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast ' + type;
+}
+
+window.addEventListener('DOMContentLoaded', () => addServer());
+</script>
+</body>
+</html>

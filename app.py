@@ -34,6 +34,7 @@ from flask_compress import Compress
 # ── Path setup ────────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).parent
 MODEL_FILE = BASE_DIR / "cube_map" / "tm1_model.json"
+SERVERS_FILE = BASE_DIR / "servers.json"
 
 sys.path.insert(0, str(BASE_DIR))
 
@@ -109,8 +110,14 @@ def favicon_cube_map():
 
 @app.route("/")
 def index():
-    """Serve the CubeMap HTML diagram."""
+    """Serve the CubeMap HTML diagram, or setup page if unconfigured."""
     static_dir = BASE_DIR / "cube_map" / "static"
+    if not SERVERS_FILE.exists() or SERVERS_FILE.stat().st_size < 20:
+        if not (static_dir / "setup.html").exists():
+            abort(404, "setup.html not found")
+        resp = send_from_directory(str(static_dir), "setup.html")
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
     if not (static_dir / "tm1_cube_lineage.html").exists():
         abort(404, "cube_map/static/tm1_cube_lineage.html not found")
     resp = send_from_directory(str(static_dir), "tm1_cube_lineage.html")
@@ -192,6 +199,31 @@ LAYOUTS_DIR = BASE_DIR / "cube_map" / "layouts"
 LAYOUTS_DIR.mkdir(exist_ok=True)
 
 TAGS_FILE = BASE_DIR / "cube_map" / "tags.json"
+
+
+@app.route("/api/setup/save", methods=["POST"])
+def api_setup_save():
+    """Save servers.json from the setup form."""
+    data = request.get_json(silent=True)
+    if not data or "servers" not in data:
+        return jsonify({"error": "Missing servers data"}), 400
+    servers = data["servers"]
+    if not isinstance(servers, list) or len(servers) == 0:
+        return jsonify({"error": "At least one server is required"}), 400
+    for s in servers:
+        if not all(
+            k in s for k in ("name", "address", "auth", "user", "password", "databases")
+        ):
+            return jsonify(
+                {"error": f'Server "{s.get("name", "?")}" missing required fields'}
+            ), 400
+    try:
+        SERVERS_FILE.write_text(json.dumps(servers, indent=2), encoding="utf-8")
+        log.info("servers.json saved via setup form (%d servers)", len(servers))
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        log.error("Failed to save servers.json: %s", e)
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/servers", methods=["GET"])

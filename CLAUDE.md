@@ -120,13 +120,21 @@ Browser (http://localhost:8083)
 
 ---
 
+## Untested / Hidden Features
+
+- **RAM heatmap + Performance Monitor toggle** — Hidden from the toolbar (RAM + PM buttons removed). The backend code in `app.py` (`/api/tm1/performance-monitor`) and `extract_tm1_model.py` (`fetch_cube_ram`) still exists but is untested. Frontend JS functions (`toggleRamHeatmap`, `togglePerfMonitor`, `initRamBtn`, `loadPmState`, `updatePmBtn`) remain as dead code. Remove all of these when/if the feature is tested and re-enabled.
+
 ## Critical Gotchas
 
 - **TM1py V12 patches** — `tm1py_connect.py` uses a context manager (`_v12_patches`) that applies monkey-patches before every `TM1Service` construction and restores originals afterward. Without these patches, TM1py fails on V12 on-prem. Do not remove.
 - **Session auth** — `tm1_connect.py` manages per-server credential caches. V12 uses `TM1SessionId` cookie (OAuth2 client_id/client_secret). V11 uses Basic auth with self-signed certs (`verify=False`).
 - **Per-server session cache** — Sessions are cached by `(address, port, db_name)` tuple with 10-minute TTL. `invalidate_session()` clears only the active server's cache.
 - **Background refresh thread** — uses a lock + `already_running` 409 guard. Do not make the refresh endpoint synchronous.
-- **Python ETL nodes** — `cube_map/python_sources.json` is a manually maintained registry. Refresh re-scans whatever is listed — it does NOT auto-detect retired scripts. Remove entries manually when scripts are retired.
+- **Python ETL nodes** — `cube_map/python_sources.json` is a manually maintained registry of **absolute paths** to Python ETL scripts on disk. Scripts can live anywhere (not just in this repo). Each entry specifies `server`, `database`, `path` (absolute), and `label`. There is **no auto-discovery** — the graph will only show scripts you add here, and won't auto-detect retired ones. Remove entries manually when scripts are decommissioned. These paths are **machine-specific and not portable** — anyone cloning the repo must populate this file with their own script paths. Example entry:
+
+    ```json
+    {"server": "V12 Production", "database": "TM1 Governance", "path": "/opt/scripts/etl/load_gl.py", "label": "ETL — Load GL"}
+    ```
 - **TI edges** — `scan_ti_edges.py` is called during refresh to extract cube read/write edges from TI processes.
 - **Tags persist via model file** — `POST /api/tags` writes to both `tags.json` AND injects `_tags` into `tm1_model.json`. On refresh, `do_refresh()` preserves `_tags` from `tags.json`. When loading, `/api/model` injects `_tags` from `tags.json` if not embedded yet. This triple-redundancy ensures tags never get lost.
 - **TDZ in frontend** — All `let`/`const` declarations referenced by functions called during script init must be declared before those calls. The `_sidebarSelectedTag` variable is declared before `buildSidebar()` to avoid temporal dead zone crashes.
@@ -154,7 +162,7 @@ Browser (http://localhost:8083)
 - [ ] Gunicorn + nginx for shared deployments
 - [ ] Prometheus `/metrics` endpoint
 - [ ] Structured JSON logging option
-- [ ] Cloud (IBM PAaaS) auth support — new `auth` type in servers.json
+- [ ] Cloud (IBM PAaaS / SAP AC) auth support — new `auth` type in servers.json (see README for guidance)
 
 ---
 
@@ -171,12 +179,12 @@ Browser (http://localhost:8083)
 ### CubeMap — Enriched Extraction
 
 - [ ] Extract measure dimension elements → surface in node detail panel
-- [ ] TI process edges: which TIs write to each cube → data lineage
+- [x] TI process edges: which TIs write to each cube → data lineage (extraction via scan_ti_edges.py, trace via Trace tab)
 - [ ] Chore connections: which chores schedule TIs that touch each cube
 
 ### CubeMap — Calculation Trace
 
-- [ ] **Phase 1 — Static trace**: Parse rules text already in model JSON. Extract `DB('SourceCube', ...)` chains. Walk back recursively, max 4–5 levels. Render as collapsible tree.
+- [x] **Phase 1 — Combined trace**: Walks DB() refs in rules + TI process edges (`t: "ti"`) + ExecuteProcess chains. One unified tree under a selected measure. Shows [Rules], [TI], and [Exec] node types. Cycle detection, 5-hop depth limit, clickable navigation. File: `cube_map/TRACE_IMPLEMENTATION.md`
 - [ ] **Phase 2 — AI explanation**: Pass formula tree to Claude API → plain English description. Cache in `rules_analysis/`.
 
 ### CubeMap — Inherited Model Support

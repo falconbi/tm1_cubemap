@@ -143,9 +143,10 @@ def scan_file(filepath: str, known_cubes: set) -> dict:
     return {"reads": reads, "writes": writes}
 
 
-def scan_all(sources_file: str, known_cubes: set) -> list:
+def scan_all(sources_file: str, known_cubes: set, entries: list = None) -> list:
     """
     Read python_sources.json and scan every listed script.
+    Pass `entries` to skip the file read and use a pre-filtered list instead.
 
     Returns a list of edge dicts ready for merging into tm1_model.json:
       {
@@ -155,12 +156,14 @@ def scan_all(sources_file: str, known_cubes: set) -> list:
         "writes": [cube_name, ...],
       }
     """
-    sources_path = Path(sources_file)
-    if not sources_path.exists():
-        log.warning(f"python_sources.json not found at {sources_path} — skipping Python edge scan")
-        return []
-
-    sources = json.loads(sources_path.read_text())
+    if entries is not None:
+        sources = entries
+    else:
+        sources_path = Path(sources_file)
+        if not sources_path.exists():
+            log.warning(f"python_sources.json not found at {sources_path} — skipping Python edge scan")
+            return []
+        sources = json.loads(sources_path.read_text())
 
     # Build stem→label map for trigger detection (e.g. 'load_gl' → 'ETL — Load GL')
     stem_to_label = {
