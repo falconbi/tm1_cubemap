@@ -211,11 +211,15 @@ def api_setup_save():
     if not isinstance(servers, list) or len(servers) == 0:
         return jsonify({"error": "At least one server is required"}), 400
     for s in servers:
-        if not all(
-            k in s for k in ("name", "address", "auth", "user", "password", "databases")
-        ):
+        required = {"name", "address", "auth", "user", "databases"}
+        if s.get("auth") == "v11":
+            required.add("password")
+        else:
+            required |= {"client_id", "client_secret"}
+        missing = required - set(s.keys())
+        if missing:
             return jsonify(
-                {"error": f'Server "{s.get("name", "?")}" missing required fields'}
+                {"error": f'Server "{s.get("name", "?")}" missing fields: {", ".join(sorted(missing))}"}
             ), 400
     try:
         if SERVERS_FILE.is_dir():
