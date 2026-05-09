@@ -46,7 +46,7 @@ docker compose up -d
 ```bash
 python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-cp servers.json.example servers.json   # fill in your TM1 instances
+mkdir config && cp servers.json.example config/servers.json   # fill in your TM1 instances
 cp .env.example .env
 python3 app.py
 ```
@@ -93,7 +93,7 @@ See [`servers.json.example`](./servers.json.example) for a complete template.
 
 | Variable | Default | Description |
 |---|---|---|
-| `PORT` | `8083` | Flask server port (inside container; Docker exposes on 8084) |
+| `PORT` | `8084` | Flask server port (inside container; Docker exposes on 8084) |
 
 ---
 
@@ -135,8 +135,8 @@ No SSO, no PAW, no Authentik, no cloud required.
 Browser → Flask (app.py)
             ├── core/tm1_connect.py       → TM1 REST API (fast, raw requests)
             ├── core/tm1py_connect.py     → TM1py (deep extraction — rules, attributes)
-            ├── cube_map/extract_tm1_model.py → writes cube_map/tm1_model.json
+            ├── cube_map/extract_tm1_model.py → writes cube_map/data/tm1_model.json
             └── cube_map/static/tm1_cube_lineage.html → single-page frontend
 ```
 
-Tags are stored inside `tm1_model.json` as `_tags`, ensuring they survive model re-extraction. Layouts are stored as individual JSON files in `cube_map/layouts/`.
+Tags are stored inside `tm1_model.json` as `_tags`, ensuring they survive model re-extraction. Layouts are stored as individual JSON files in `cube_map/data/layouts/`.

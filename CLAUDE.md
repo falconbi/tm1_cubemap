@@ -29,7 +29,7 @@ Browser (http://localhost:8083)
             ├── core/tm1_connect.py       → raw requests.Session (V12 cookie auth / V11 basic auth)
             ├── core/tm1py_connect.py     → TM1Service (monkey-patched for V12 on-prem)
             ├── core/servers.json         → TM1 instance + database registry
-            ├── extract_tm1_model.py      → writes cube_map/tm1_model.json (cache)
+            ├── extract_tm1_model.py      → writes cube_map/data/tm1_model.json (cache)
             └── cube_map/static/tm1_cube_lineage.html → single-page frontend (Cytoscape.js)
 ```
 
