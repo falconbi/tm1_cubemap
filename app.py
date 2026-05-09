@@ -42,7 +42,7 @@ from dotenv import load_dotenv
 
 load_dotenv(BASE_DIR / ".env")
 
-PORT = int(os.environ.get("PORT", 8083))
+PORT = int(os.environ.get("PORT", 8084))
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(

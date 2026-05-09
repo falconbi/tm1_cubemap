@@ -82,9 +82,9 @@ fi
 
 if [ ! -f .env ]; then
   cat > .env <<'EOF'
-PORT=8083  # container port; host maps via docker-compose ports
+PORT=8084
 
-  ok ".env created (PORT=8083)"
+  ok ".env created (PORT=8084)"
 else
   info ".env already exists — keeping as-is"
 fi
@@ -109,5 +109,7 @@ docker compose up -d
 
 echo
 ok "CubeMap is running at http://localhost:8084"
+
+info "Open it in your browser and the setup form will guide you through TM1 config"
 info "Open it in your browser and click Refresh from TM1"
 echo
