@@ -14,40 +14,33 @@ CubeMap turns your TM1 model into an interactive graph. Every cube, TI process, 
 - REST API enabled on the TM1 server
 - Docker OR Python 3.10+
 
-### 2. Connect to your TM1 server
+### 2. Start CubeMap
 
-Copy and edit the server config:
-
+**Docker (recommended):**
 ```bash
-cp servers.json.example servers.json
+mkdir tm1-cubemap && cd tm1-cubemap
+curl -sSLO https://raw.githubusercontent.com/falconbi/tm1_cubemap/main/docker-compose.yml
+docker compose up -d
 ```
 
-Edit `servers.json` with your TM1 instance details. See [Configuration](#configuration) for field descriptions.
-
-Copy and edit environment:
-
+**Python (manual install):**
 ```bash
-cp .env.example .env
-```
-
-### 3. Start CubeMap
-
-**Docker:**
-```bash
-docker compose up --build
-```
-
-**Python:**
-```bash
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
+mkdir config && cp servers.json.example config/servers.json  # fill in your TM1 details
+cp .env.example .env
 python3 app.py
 ```
 
+### 3. Connect to your TM1 server
+
+**Docker:** Open **http://localhost:8084** — a setup form appears on first run. Enter your TM1 server details and click Save. No files to edit manually.
+
+**Python:** Edit `config/servers.json` with your TM1 instance details before starting. See [Configuration](#configuration) for field descriptions.
+
 ### 4. Extract your model
 
-Open **http://localhost:8083** and click **Refresh** in the toolbar. This extracts cubes, rules, TI processes, dimensions, and edges from your TM1 server. Extraction runs in the background — the page reloads automatically when complete.
+Click **Refresh** in the toolbar. This extracts cubes, rules, TI processes, dimensions, and edges from your TM1 server. Extraction runs in the background — the page reloads automatically when complete.
 
 <p align="center"><img src="screenshots/main-graph.png" alt="CubeMap main interface" width="800"></p>
 
@@ -92,7 +85,7 @@ Each entry in the JSON array is a TM1 server with one or more databases.
 
 | Variable | Default | Description |
 |---|---|---|
-| `PORT` | `8083` | Flask server port |
+| `PORT` | `8084` | Flask server port |
 
 ---
 
@@ -268,7 +261,7 @@ CubeMap scans TI process code at extraction time to detect cube read/write relat
 |---|---|---|
 | **"No model cached" on page load** | First-time setup or model was cleared | Click **Refresh** |
 | **Refresh returns 409** | Extraction already running | Wait for it to finish |
-| **Server dropdown is empty** | `servers.json` not found or invalid JSON | Check `servers.json` exists and is valid JSON |
+| **Setup form appears on every load** | `config/servers.json` missing or unreadable | Check the `config/` volume mount and that servers.json is valid JSON |
 | **"Connection refused"** | TM1 REST API not running or wrong port | Verify `address` and `port` in `servers.json`. Ensure `TM1 REST API` is enabled on the TM1 server |
 | **V12 auth fails** | Invalid OAuth2 client or secret | Verify `client_id` and `client_secret`. Ensure the OAuth2 client has access to the database |
 | **V11 auth fails** | Wrong credentials or SSL cert issue | For self-signed certs, `verify: false` is set automatically in `tm1_connect.py` |
