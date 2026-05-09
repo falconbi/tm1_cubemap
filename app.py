@@ -218,6 +218,8 @@ def api_setup_save():
                 {"error": f'Server "{s.get("name", "?")}" missing required fields'}
             ), 400
     try:
+        if SERVERS_FILE.is_dir():
+            SERVERS_FILE.rmdir()
         SERVERS_FILE.write_text(json.dumps(servers, indent=2), encoding="utf-8")
         log.info("servers.json saved via setup form (%d servers)", len(servers))
         return jsonify({"status": "ok"})
