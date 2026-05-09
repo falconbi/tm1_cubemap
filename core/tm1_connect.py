@@ -8,7 +8,7 @@ from pathlib import Path
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-SERVERS_FILE = Path(__file__).parent.parent / "servers.json"
+SERVERS_FILE = Path(__file__).parent.parent / "config" / "servers.json"
 ACTIVE_FILE = Path(__file__).parent.parent / "active_server.json"
 
 SESSION_TTL = 600  # 10 minutes

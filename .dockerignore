@@ -11,6 +11,7 @@ __pycache__/
 cube_map/tm1_model.json
 cube_map/layouts/*.json
 cube_map/tags.json
+config/
 servers.json
 active_server.json
 *.pem

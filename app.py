@@ -34,7 +34,7 @@ from flask_compress import Compress
 # ── Path setup ────────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).parent
 MODEL_FILE = BASE_DIR / "cube_map" / "tm1_model.json"
-SERVERS_FILE = BASE_DIR / "servers.json"
+SERVERS_FILE = BASE_DIR / "config" / "servers.json"
 
 sys.path.insert(0, str(BASE_DIR))
 
@@ -219,9 +219,12 @@ def api_setup_save():
         missing = required - set(s.keys())
         if missing:
             return jsonify(
-                {"error": f'Server "{s.get("name", "?")}" missing fields: {", ".join(sorted(missing))}"}
+                {
+                    "error": f'Server "{s.get("name", "?")}" missing fields: {", ".join(sorted(missing))}'
+                }
             ), 400
     try:
+        SERVERS_FILE.parent.mkdir(parents=True, exist_ok=True)
         if SERVERS_FILE.is_dir():
             SERVERS_FILE.rmdir()
         SERVERS_FILE.write_text(json.dumps(servers, indent=2), encoding="utf-8")

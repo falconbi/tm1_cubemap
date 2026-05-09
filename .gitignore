@@ -31,5 +31,6 @@ report_builder/snapshots/
 report_builder/datasets/
 report_builder/csv/
 report_builder/pack_snapshots/
+config/
 servers.json
 active_server.json

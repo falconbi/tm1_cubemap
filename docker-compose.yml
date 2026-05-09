@@ -4,7 +4,7 @@ services:
     ports:
       - "8084:8084"
     volumes:
-      - ./servers.json:/app/servers.json
+      - ./config:/app/config
       - tm1_data:/app/cube_map
     restart: unless-stopped
 
