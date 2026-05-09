@@ -18,6 +18,13 @@ docker compose up -d
 
 Open **[http://localhost:8084](http://localhost:8084)**. The first-run setup form walks you through adding your TM1 servers. No files to edit manually.
 
+**Update to the latest version:**
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
 Or if you cloned the repo:
 
 ```bash
