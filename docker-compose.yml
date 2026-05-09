@@ -1,5 +1,5 @@
 services:
-  tm1-governance:
+  cubemap:
     image: falconbi/tm1-cubemap:latest
     ports:
       - "8084:8083"
