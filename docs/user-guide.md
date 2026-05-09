@@ -225,15 +225,55 @@ Node positions are saved per layout. The **default** layout is auto-loaded.
 
 ---
 
-## Spec Editor
+## AI Documentation
 
-The Spec tab provides AI-assisted description generation for cubes and TI processes.
+CubeMap has two AI-assisted documentation features — one for individual objects, one for entire modules (groups of tagged objects).
 
-**Viewing:** Click the Spec tab on any object's detail panel.
+---
 
-**AI prompt:** Click the Prompt button to generate an AI prompt based on the object's rules, TI code, and connections. Use this with your preferred AI tool to generate descriptions.
+### Object Spec (Spec tab)
 
-**Saving:** Enter descriptions directly in the editor and save. Descriptions persist across refreshes.
+The Spec tab on any detail panel generates a functional specification for a single cube, TI process, or Python script.
+
+**Generating a spec:**
+1. Click any node to open its detail panel
+2. Click the **Spec** tab
+3. Click **Prompt** — CubeMap assembles a prompt containing the object's rules or code, upstream/downstream connections, and instructions
+4. Copy the prompt and paste it into your preferred AI tool (Claude, ChatGPT, etc.)
+5. Paste the AI response back into the Spec editor and click **Save**
+
+**What the prompt includes:**
+- Object name, type, and connections (what feeds it, what it feeds)
+- For cubes: full rules text
+- For TI processes: all four code sections (Prolog, Metadata, Data, Epilog)
+- For Python scripts: full script source
+- Instructions asking the AI to produce a structured spec with purpose, inputs, logic (in plain maths/pseudocode — no TM1 syntax), outputs, dependencies, and migration notes
+
+**Output format:** The AI returns a JSON spec with these fields: `purpose`, `inputs`, `logic`, `outputs`, `dependencies`, `trigger`, `notes`. CubeMap saves and displays this in the Spec tab.
+
+**Specs persist** across model refreshes and are stored per-object in `rules_analysis/specs/`.
+
+---
+
+### Module Prompt (sidebar)
+
+The Module Prompt bundles all objects sharing one or more tags into a single AI prompt — useful for documenting an entire business module at once.
+
+**Workflow:**
+1. Tag all cubes, TI processes, and Python scripts that belong to the module (e.g. tag them all `"FCM"`)
+2. In the sidebar tag filter, select the tag
+3. Click **Module Prompt** — CubeMap bundles all tagged objects with their code, connections, and cross-module boundaries
+4. Paste the prompt into your AI tool
+
+**What the prompt includes:**
+- All objects with the selected tag(s)
+- External inputs (objects outside the module that feed into it)
+- External outputs (objects outside the module that this module feeds)
+- Instructions asking the AI to produce a module summary, data flow description, and per-object specs
+
+**Output format:** The AI returns JSON: `moduleSummary`, `dataFlow`, and an `objects` map with per-object specs.
+
+**Use case:** Migration documentation — the prompt is written specifically for a developer who has never used TM1, instructing the AI to express all logic as plain maths or pseudocode with no TM1 syntax.
 
 ---
 
