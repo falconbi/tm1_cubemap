@@ -1,5 +1,7 @@
 # TM1 CubeMap
 
+**[Documentation](https://falconbi.github.io/tm1_cubemap/)** · [Docker Hub](https://hub.docker.com/r/falconbi/tm1-cubemap) · [Report an Issue](https://github.com/falconbi/tm1_cubemap/issues)
+
 Interactive data lineage diagram for TM1 / Planning Analytics **on-prem** (V11 recommended, V12 also supported).
 
 Visualises cubes, rules, TI processes, and Python ETL scripts as a navigable graph. Click any node to inspect rules, script code, dimensions, measures, and data flow. Switch between TM1 instances and databases from the toolbar without restarting.
