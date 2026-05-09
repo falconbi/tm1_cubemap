@@ -1,18 +1,18 @@
 [
   {
-    "server": "V12 Production",
+    "server": "V12",
     "database": "TM1 Governance",
     "path": "/home/jdlove/apps/tm1_apportionment/etl/run_apportionment.py",
     "label": "ETL — Run Apportionment"
   },
   {
-    "server": "V12 Production",
+    "server": "V12",
     "database": "TM1 Governance",
     "path": "/home/jdlove/apps/tm1_apportionment/etl/poller.py",
     "label": "ETL — Poller"
   },
   {
-    "server": "V12 Production",
+    "server": "V12",
     "database": "TM1 Governance",
     "path": "/home/jdlove/apps/tm1_apportionment/etl/val_checks.py",
     "label": "ETL — Validation Checks"
