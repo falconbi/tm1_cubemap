@@ -4,30 +4,472 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Falcon BI — TM1 CubeMap</title>
-  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=1" />
+  <link rel="shortcut icon" href="favicon.svg?v=1" />
+  <link rel="apple-touch-icon" href="favicon.svg?v=1" />
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
   <style>
-    body { margin:0; background:#0a1428; }
-    .hero { padding-top:70px; min-height:100vh; display:flex; align-items:center; justify-content:center; }
-    img.main { max-width:100%; height:auto; display:block; }
-    nav {
-      position:fixed; top:0; left:0; right:0; height:60px;
-      background:rgba(10,20,40,0.95); backdrop-filter:blur(12px);
-      display:flex; align-items:center; justify-content:space-between;
-      padding:0 40px; z-index:100;
+    :root {
+      --bg:             #ffffff;
+      --sidebar-bg:     #f8fafc;
+      --sidebar-border: #e2e8f0;
+      --accent:         #3b82f6;        /* Blue for CubeMap */
+      --accent-bg:      #eff6ff;
+      --accent-border:  #bfdbfe;
+      --text:           #475569;
+      --text-bright:    #0f172a;
+      --text-muted:     #94a3b8;
+      --code-bg:        #f8fafc;
+      --code-border:    #e2e8f0;
+      --table-header:   #f1f5f9;
+      --divider:        #e2e8f0;
+      --sidebar-w:      268px;
+      --topbar-h:       58px;
     }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* All styles below are EXACTLY the same as tm1_report_writer */
+
+    #sidebar {
+      width: var(--sidebar-w);
+      min-height: 100vh;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--sidebar-border);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      z-index: 100;
+      overflow-y: auto;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 22px 20px 18px;
+      border-bottom: 1px solid var(--sidebar-border);
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .brand img {
+      width: 34px;
+      height: 34px;
+      object-fit: contain;
+    }
+
+    .brand-text { display: flex; flex-direction: column; }
+
+    .brand-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-bright);
+      letter-spacing: -0.01em;
+      line-height: 1.2;
+    }
+
+    .brand-sub {
+      font-size: 10.5px;
+      color: var(--text-muted);
+      margin-top: 1px;
+      letter-spacing: 0.01em;
+    }
+
+    .nav-section {
+      padding: 18px 12px 8px;
+      flex: 1;
+    }
+
+    .nav-label {
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: 0 10px;
+      margin-bottom: 4px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 10px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 13.5px;
+      color: var(--text);
+      transition: background 0.12s, color 0.12s;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+      line-height: 1.4;
+      font-weight: 450;
+    }
+
+    .nav-item:hover {
+      background: #f1f5f9;
+      color: var(--text-bright);
+    }
+
+    .nav-item.active {
+      background: var(--accent-bg);
+      color: #1e40af;
+      font-weight: 600;
+      border: 1px solid var(--accent-border);
+    }
+
+    .nav-item svg {
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+      color: var(--text-muted);
+    }
+
+    .nav-item.active svg { color: var(--accent); }
+    .nav-item:hover svg { color: var(--text); }
+
+    /* Sub-nav styles (exact copy) */
+    .nav-sub {
+      margin: 2px 0 6px 22px;
+      border-left: 2px solid var(--divider);
+      padding-left: 0;
+    }
+
+    .nav-sub-item, .nav-sub3-item {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 5px 10px;
+      font-size: 12px;
+      color: var(--text-muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      border-radius: 0 5px 5px 0;
+      transition: color 0.12s, background 0.12s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.4;
+    }
+
+    .nav-sub-item:hover, .nav-sub3-item:hover {
+      color: var(--text-bright);
+      background: #f1f5f9;
+    }
+
+    .nav-sub-item.active, .nav-sub3-item.active {
+      color: #1e40af;
+      font-weight: 600;
+      background: var(--accent-bg);
+    }
+
+    .nav-sub3 {
+      display: none;
+      margin-left: 10px;
+      border-left: 2px solid var(--divider);
+    }
+    .nav-sub3.open { display: block; }
+
+    .sidebar-footer {
+      padding: 16px 20px;
+      border-top: 1px solid var(--sidebar-border);
+      font-size: 11.5px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sidebar-footer img {
+      width: 16px;
+      height: 16px;
+      object-fit: contain;
+      opacity: 0.4;
+    }
+
+    #main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    #topbar {
+      height: var(--topbar-h);
+      background: var(--bg);
+      border-bottom: 1px solid var(--sidebar-border);
+      display: flex;
+      align-items: center;
+      padding: 0 48px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      gap: 10px;
+    }
+
+    #topbar-crumb { font-size: 12px; color: var(--text-muted); }
+    #topbar-sep { font-size: 12px; color: var(--text-muted); }
+    #topbar-title { font-size: 13px; font-weight: 600; color: var(--text-bright); }
+
+    #content {
+      padding: 52px 48px 100px;
+      max-width: 860px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    #loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 300px;
+      color: var(--text-muted);
+      font-size: 14px;
+      gap: 10px;
+    }
+
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid var(--divider);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Markdown styles (exact copy) */
+    .md h1 { font-size: 30px; font-weight: 800; color: var(--text-bright); margin-bottom: 6px; line-height: 1.2; letter-spacing: -0.02em; }
+    .md h1::after { content: ''; display: block; width: 36px; height: 3px; background: var(--accent); border-radius: 2px; margin-top: 12px; margin-bottom: 4px; }
+    .md h2 { font-size: 20px; font-weight: 700; color: var(--text-bright); margin-top: 48px; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--divider); letter-spacing: -0.01em; }
+    .md h3 { font-size: 14px; font-weight: 700; color: var(--text-bright); margin-top: 28px; margin-bottom: 10px; }
+    .md p { font-size: 14.5px; line-height: 1.8; color: var(--text); margin-bottom: 16px; }
+    .md a { color: var(--accent); text-decoration: none; font-weight: 500; border-bottom: 1px solid #bfdbfe; }
+    .md a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+    .md code { font-family: 'SF Mono', monospace; font-size: 12.5px; background: var(--code-bg); padding: 2px 6px; border-radius: 5px; border: 1px solid var(--code-border); }
+    .md pre { background: var(--code-bg); border: 1px solid var(--code-border); border-radius: 10px; padding: 20px 22px; overflow-x: auto; margin-bottom: 20px; }
+    .md img { max-width: 100%; border-radius: 10px; border: 1px solid var(--divider); margin: 16px 0; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+
+    #back-top {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      width: 38px;
+      height: 38px;
+      background: var(--bg);
+      border: 1px solid var(--divider);
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+    #back-top.visible { display: flex; }
   </style>
 </head>
 <body>
-  <nav>
-    <div style="display:flex; align-items:center; gap:12px; color:white; font-weight:700;">
-      <img src="logo.png" alt="Falcon BI" style="height:32px;">
-      <span>FALCON BI</span>
+
+  <!-- Sidebar -->
+  <nav id="sidebar">
+    <div class="brand" onclick="loadPage('user-guide.md','User Guide')">
+      <img src="logo.png" alt="Falcon BI" />
+      <div class="brand-text">
+        <span class="brand-name">Falcon BI</span>
+        <span class="brand-sub">TM1 CubeMap</span>
+      </div>
     </div>
-    <a href="docs.html" style="color:#60a5fa; font-weight:600;">Documentation →</a>
+
+    <div class="nav-section">
+      <div class="nav-label">Documentation</div>
+
+      <button class="nav-item active" data-file="user-guide.md" onclick="loadPage('user-guide.md','User Guide')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        User Guide
+      </button>
+    </div>
+
+    <div class="sidebar-footer">
+      <img src="logo.png" alt="" />
+      © 2026 Falcon BI
+    </div>
   </nav>
 
-  <div class="hero">
-    <img src="screenshots/cubemap_hero.jpg" class="main" alt="TM1 CubeMap" />
+  <!-- Main -->
+  <div id="main">
+    <div id="topbar">
+      <span id="topbar-crumb">Falcon BI</span>
+      <span id="topbar-sep">›</span>
+      <span id="topbar-title">User Guide</span>
+    </div>
+    <div id="content">
+      <div id="loading"><div class="spinner"></div> Loading…</div>
+      <div id="md-output" class="md" style="display:none"></div>
+    </div>
   </div>
+
+  <button id="back-top" title="Back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+  </button>
+
+  <script>
+    marked.setOptions({
+      breaks: true,
+      gfm: true,
+      highlight: function(code, lang) {
+        if (lang && hljs.getLanguage(lang)) {
+          return hljs.highlight(code, { language: lang }).value
+        }
+        return hljs.highlightAuto(code).value
+      }
+    })
+
+    function slugify(text) {
+      return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    }
+
+    function buildSubNav(activeBtn) {
+      document.querySelectorAll('.nav-sub').forEach(el => el.remove())
+
+      const output = document.getElementById('md-output')
+      const allHeadings = Array.from(output.querySelectorAll('h2, h3'))
+      const h2s = allHeadings.filter(h => h.tagName === 'H2')
+      if (!h2s.length) return
+
+      allHeadings.forEach(h => {
+        if (!h.id) h.id = slugify(h.textContent)
+      })
+
+      const subNav = document.createElement('div')
+      subNav.className = 'nav-sub'
+
+      h2s.forEach((h2, i) => {
+        const nextH2 = h2s[i + 1]
+        const h3s = allHeadings.filter(h => h.tagName === 'H3' && 
+          h.compareDocumentPosition(h2) & Node.DOCUMENT_POSITION_PRECEDING &&
+          (!nextH2 || h.compareDocumentPosition(nextH2) & Node.DOCUMENT_POSITION_FOLLOWING))
+
+        const btn = document.createElement('button')
+        btn.className = 'nav-sub-item'
+        btn.textContent = h2.textContent
+        btn.dataset.target = h2.id
+
+        const sub3 = document.createElement('div')
+        sub3.className = 'nav-sub3'
+        sub3.dataset.parent = h2.id
+
+        h3s.forEach(h3 => {
+          const b3 = document.createElement('button')
+          b3.className = 'nav-sub3-item'
+          b3.textContent = h3.textContent
+          b3.dataset.target = h3.id
+          b3.onclick = (e) => {
+            e.stopPropagation()
+            document.getElementById(h3.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }
+          sub3.appendChild(b3)
+        })
+
+        btn.onclick = () => {
+          document.querySelectorAll('.nav-sub3').forEach(s => s.classList.remove('open'))
+          if (h3s.length) sub3.classList.add('open')
+          document.getElementById(h2.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+
+        subNav.appendChild(btn)
+        if (h3s.length) subNav.appendChild(sub3)
+      })
+
+      activeBtn.insertAdjacentElement('afterend', subNav)
+    }
+
+    function updateActiveSubItem() {
+      const h2items = document.querySelectorAll('.nav-sub-item')
+      if (!h2items.length) return
+
+      const allH = Array.from(document.querySelectorAll('#md-output h2, #md-output h3'))
+      let currentH2 = null, currentH3 = null
+      allH.forEach(h => {
+        if (h.getBoundingClientRect().top <= 90) {
+          if (h.tagName === 'H2') { currentH2 = h; currentH3 = null }
+          else currentH3 = h
+        }
+      })
+
+      h2items.forEach(btn => {
+        const active = btn.dataset.target === currentH2?.id
+        btn.classList.toggle('active', active)
+        if (active) {
+          const sub3 = btn.nextElementSibling
+          if (sub3?.classList.contains('nav-sub3')) sub3.classList.add('open')
+        }
+      })
+
+      document.querySelectorAll('.nav-sub3-item').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.target === currentH3?.id)
+      })
+    }
+
+    function loadPage(file, title) {
+      document.querySelectorAll('.nav-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.file === file)
+      })
+      document.getElementById('topbar-title').textContent = title
+      document.querySelectorAll('.nav-sub').forEach(el => el.remove())
+
+      const output = document.getElementById('md-output')
+      const loading = document.getElementById('loading')
+      output.style.display = 'none'
+      loading.style.display = 'flex'
+      window.scrollTo({ top: 0 })
+
+      fetch(file + '?v=' + Date.now())
+        .then(r => { if (!r.ok) throw new Error(r.status); return r.text() })
+        .then(md => {
+          md = md.replace(/^---[\s\S]*?---\n?/, '')
+          output.innerHTML = marked.parse(md)
+          output.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el))
+          loading.style.display = 'none'
+          output.style.display = 'block'
+          const activeBtn = document.querySelector('.nav-item.active')
+          if (activeBtn) buildSubNav(activeBtn)
+          updateActiveSubItem()
+        })
+        .catch(() => {
+          loading.style.display = 'none'
+          output.style.display = 'block'
+          output.innerHTML = `<h1>Coming soon</h1><p>This page hasn't been added yet.</p>`
+        })
+    }
+
+    window.addEventListener('scroll', () => {
+      document.getElementById('back-top').classList.toggle('visible', window.scrollY > 300)
+      updateActiveSubItem()
+    })
+
+    // Start with your file
+    loadPage('user-guide.md', 'User Guide')
+  </script>
 </body>
 </html>
