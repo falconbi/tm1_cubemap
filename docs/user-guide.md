@@ -1,7 +1,8 @@
 ---
 title: User Guide
-nav_order: 2
+nav_order: 1
 has_toc: true
+permalink: /
 ---
 
 # TM1 CubeMap — User Guide
